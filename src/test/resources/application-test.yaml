@@ -1,0 +1,5 @@
+MS01_URI: http://localhost:1
+
+management:
+  server:
+    port: 0

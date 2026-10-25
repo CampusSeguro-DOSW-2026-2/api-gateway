@@ -1,0 +1,2 @@
+# Red interna de Docker: nombre DNS del contenedor (= repositorio), nunca localhost.
+MS01_URI: http://ms01-identity-and-access:8081
