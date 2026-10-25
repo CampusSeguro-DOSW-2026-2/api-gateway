@@ -2,7 +2,6 @@ package edu.eci.dosw.campusseguro.gateway.gateway_service.error;
 
 import edu.eci.dosw.campusseguro.gateway.gateway_service.correlation.CorrelationIdProvider;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.routing.RouteConfig;
-import java.util.Optional;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,16 +70,16 @@ public class DownstreamErrorValidationFilter implements GlobalFilter, Ordered {
             if (status == null || !status.isError()) {
                 return super.writeWith(body);
             }
+            // DataBufferLimitException solo la emite join(), al superar el límite de tamaño.
             return DataBufferUtils.join(body, MAX_ERROR_BODY_BYTES)
                     .map(DownstreamErrorValidationFilter::toBytes)
                     .defaultIfEmpty(new byte[0])
-                    .map(bytes -> new ErrorBody(bytes, validator.violation(status.value(), bytes,
-                            correlationIdProvider.correlationId(exchange))))
-                    .onErrorResume(DataBufferLimitException.class, e ->
-                            Mono.just(new ErrorBody(new byte[0], Optional.of("cuerpo excede el límite"))))
-                    .flatMap(error -> error.violation().isEmpty()
-                            ? super.writeWith(Mono.just(bufferFactory().wrap(error.bytes())))
-                            : replaceWithBadGateway(status, error.violation().get()));
+                    .flatMap(bytes -> validator
+                            .violation(status.value(), bytes, correlationIdProvider.correlationId(exchange))
+                            .map(violation -> replaceWithBadGateway(status, violation))
+                            .orElseGet(() -> super.writeWith(Mono.just(bufferFactory().wrap(bytes)))))
+                    .onErrorResume(DataBufferLimitException.class,
+                            e -> replaceWithBadGateway(status, "cuerpo excede el límite"));
         }
 
         private Mono<Void> replaceWithBadGateway(HttpStatusCode status, String violation) {
@@ -89,9 +88,6 @@ public class DownstreamErrorValidationFilter implements GlobalFilter, Ordered {
             getDelegate().getHeaders().clear();
             return writer.write(exchange, getDelegate(), GatewayError.SERVICE_UNAVAILABLE);
         }
-    }
-
-    private record ErrorBody(byte[] bytes, Optional<String> violation) {
     }
 
     private static byte[] toBytes(DataBuffer buffer) {
