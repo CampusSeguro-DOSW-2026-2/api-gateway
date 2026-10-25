@@ -23,9 +23,13 @@ public class ErrorResponseWriter {
     }
 
     public Mono<Void> write(ServerWebExchange exchange, GatewayError error) {
+        return write(exchange, exchange.getResponse(), error);
+    }
+
+    /** Escribe el error en {@code response} (p. ej. la respuesta original bajo un decorador). */
+    public Mono<Void> write(ServerWebExchange exchange, ServerHttpResponse response, GatewayError error) {
         ErrorResponse body = new ErrorResponse(error.status().value(), error.codigo(), error.mensaje(), List.of(),
                 correlationIdProvider.correlationId(exchange));
-        ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(error.status());
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
         DataBuffer buffer = response.bufferFactory().wrap(jsonMapper.writeValueAsBytes(body));

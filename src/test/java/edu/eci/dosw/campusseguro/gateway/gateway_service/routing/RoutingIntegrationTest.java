@@ -92,9 +92,12 @@ class RoutingIntegrationTest {
 
     @Test
     void shouldForwardUnusualVerbAndLetTheMsAnswer() {
-        MS01.respond(405, "{\"status\":405}");
+        String correlationId = "c19b472d-7a2a-4d3b-a12b-abcdef123456";
+        MS01.respond(405, "{\"status\":405,\"codigo\":\"METODO_NO_PERMITIDO\",\"mensaje\":\"Método no permitido.\","
+                + "\"errores\":[],\"correlation_id\":\"" + correlationId + "\"}");
 
-        client().delete().uri("/api/v1/roles").exchange().expectStatus().isEqualTo(405);
+        client().delete().uri("/api/v1/roles").header("X-Correlation-ID", correlationId)
+                .exchange().expectStatus().isEqualTo(405);
 
         assertThat(MS01.requests()).extracting(RecordedRequest::method).containsExactly("DELETE");
     }

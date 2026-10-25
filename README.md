@@ -50,25 +50,30 @@ curl -i -X POST http://localhost:8080/api/v1/auth/login -H 'Content-Type: applic
 
 # 6. Con MS01 encendido en 8081, la misma solicitud llega a MS01 sin cambios (repetir el paso 5)
 
-# 7. Correlación válida: el UUID v4 enviado vuelve igual en la cabecera X-Correlation-ID y en correlation_id
+# 7. Con MS01 encendido: un error de MS01 que cumple el ErrorResponse (p. ej. 401 por credenciales) llega sin cambios;
+#    si no lo cumple (sin correlation_id, cuerpo por defecto de Spring), el GW responde 502 SERVICIO_NO_DISPONIBLE
+curl -i -X POST http://localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' -d '{"correo":"no.existe@escuelaing.edu.co","contrasena":"Campus#2026"}'
+# [Windows CMD/PowerShell]: curl.exe -i -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d "{\"correo\":\"no.existe@escuelaing.edu.co\",\"contrasena\":\"Campus#2026\"}"
+
+# 8. Correlación válida: el UUID v4 enviado vuelve igual en la cabecera X-Correlation-ID y en correlation_id
 curl -i http://localhost:8080/api/v1/inexistente -H 'X-Correlation-ID: c19b472d-7a2a-4d3b-a12b-abcdef123456'
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/inexistente -H "X-Correlation-ID: c19b472d-7a2a-4d3b-a12b-abcdef123456"
 
-# 8. Correlación inválida o ausente: el GW genera un UUID v4 nuevo y no rechaza la solicitud
+# 9. Correlación inválida o ausente: el GW genera un UUID v4 nuevo y no rechaza la solicitud
 curl -i http://localhost:8080/api/v1/inexistente -H 'X-Correlation-ID: no-es-uuid'
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/inexistente -H "X-Correlation-ID: no-es-uuid"
 
-# 9. Health del GW en el puerto de gestión
+# 10. Health del GW en el puerto de gestión
 curl http://localhost:9090/actuator/health
 # [Windows]: curl.exe http://localhost:9090/actuator/health
 
-# 10. Configuración inválida: el GW no arranca y el log indica la causa
+# 11. Configuración inválida: el GW no arranca y el log indica la causa
 mvn spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments=--gateway.downstream-timeout=0ms
 # [Windows PowerShell]: mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.arguments=--gateway.downstream-timeout=0ms"
 
-# 11. Construir la imagen Docker
+# 12. Construir la imagen Docker
 docker build -t campusseguro/api-gateway:local .
 
-# 12. Ejecutar la imagen (perfil docker; un destino inalcanzable responde 502)
+# 13. Ejecutar la imagen (perfil docker; un destino inalcanzable responde 502)
 docker run --rm -p 8080:8080 campusseguro/api-gateway:local
 ```
