@@ -36,3 +36,4 @@ jobs:
 
       - name: Construir la imagen Docker
         run: docker build -t api-gateway:${{ github.sha }} .
+        
