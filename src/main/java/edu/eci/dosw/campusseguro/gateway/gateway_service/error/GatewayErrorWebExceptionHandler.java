@@ -1,5 +1,6 @@
 package edu.eci.dosw.campusseguro.gateway.gateway_service.error;
 
+import edu.eci.dosw.campusseguro.gateway.gateway_service.correlation.CorrelationIdProvider;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +31,8 @@ public class GatewayErrorWebExceptionHandler implements WebExceptionHandler {
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable exception) {
         if (exchange.getResponse().isCommitted()) {
-            log.warn("Error con la respuesta ya iniciada; se cierra la conexión: {}", exception.toString());
+            log.warn("Error con la respuesta ya iniciada; se cierra la conexión correlation_id={}: {}",
+                    correlationIdOf(exchange), exception.toString());
             return Mono.error(exception);
         }
         GatewayError error = resolvers.stream()
@@ -43,11 +45,15 @@ public class GatewayErrorWebExceptionHandler implements WebExceptionHandler {
 
     private static void logError(ServerWebExchange exchange, GatewayError error, Throwable exception) {
         if (error == GatewayError.INTERNAL_ERROR) {
-            log.error("Excepción no controlada en {} {}", exchange.getRequest().getMethod(),
-                    exchange.getRequest().getPath(), exception);
+            log.error("Excepción no controlada en {} {} correlation_id={}", exchange.getRequest().getMethod(),
+                    exchange.getRequest().getPath(), correlationIdOf(exchange), exception);
         } else if (error.status().is5xxServerError()) {
-            log.warn("{} en {} {}: {}", error.codigo(), exchange.getRequest().getMethod(),
-                    exchange.getRequest().getPath(), exception.toString());
+            log.warn("{} en {} {} correlation_id={}: {}", error.codigo(), exchange.getRequest().getMethod(),
+                    exchange.getRequest().getPath(), correlationIdOf(exchange), exception.toString());
         }
+    }
+
+    private static Object correlationIdOf(ServerWebExchange exchange) {
+        return exchange.getAttribute(CorrelationIdProvider.ATTRIBUTE);
     }
 }

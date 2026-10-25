@@ -5,6 +5,9 @@ import org.springframework.http.HttpStatus;
 /** Errores que genera el propio GW (GW-C §4). Los mensajes son genéricos y no exponen detalles internos. */
 public enum GatewayError {
 
+    VALIDATION(HttpStatus.BAD_REQUEST, "VALIDACION", "Solicitud inválida."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "NO_AUTENTICADO", "Token ausente, inválido o expirado."),
+    FORBIDDEN(HttpStatus.FORBIDDEN, "PROHIBIDO", "Acceso denegado por la política perimetral."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "NO_ENCONTRADO", "Ruta no encontrada."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "ERROR_INTERNO", "Error interno del servidor."),
     SERVICE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "SERVICIO_NO_DISPONIBLE", "Servicio temporalmente no disponible."),
