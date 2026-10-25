@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 
@@ -16,6 +17,14 @@ import java.util.concurrent.Executors;
 public final class DownstreamStub implements AutoCloseable {
 
     public record RecordedRequest(String method, String uri, Map<String, List<String>> headers, String body) {
+
+        /** Valores de una cabecera, sin distinguir mayúsculas/minúsculas. */
+        public List<String> header(String name) {
+            return headers.entrySet().stream()
+                    .filter(entry -> entry.getKey().equalsIgnoreCase(name))
+                    .flatMap(entry -> entry.getValue().stream())
+                    .toList();
+        }
     }
 
     private final HttpServer server;
@@ -23,6 +32,7 @@ public final class DownstreamStub implements AutoCloseable {
     private volatile int status = 200;
     private volatile String responseBody = "{\"mensaje\":\"ok\"}";
     private volatile Duration delay = Duration.ZERO;
+    private final Map<String, String> responseHeaders = new ConcurrentHashMap<>();
 
     private DownstreamStub() throws IOException {
         server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
@@ -49,6 +59,11 @@ public final class DownstreamStub implements AutoCloseable {
         return this;
     }
 
+    public DownstreamStub header(String name, String value) {
+        responseHeaders.put(name, value);
+        return this;
+    }
+
     public DownstreamStub delay(Duration delay) {
         this.delay = delay;
         return this;
@@ -63,6 +78,7 @@ public final class DownstreamStub implements AutoCloseable {
         status = 200;
         responseBody = "{\"mensaje\":\"ok\"}";
         delay = Duration.ZERO;
+        responseHeaders.clear();
     }
 
     private void handle(HttpExchange exchange) throws IOException {
@@ -76,6 +92,7 @@ public final class DownstreamStub implements AutoCloseable {
         }
         byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().add("Content-Type", "application/json");
+        responseHeaders.forEach(exchange.getResponseHeaders()::add);
         try (OutputStream out = exchange.getResponseBody()) {
             exchange.sendResponseHeaders(status, bytes.length == 0 ? -1 : bytes.length);
             out.write(bytes);

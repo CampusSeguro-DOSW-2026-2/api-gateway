@@ -30,7 +30,7 @@ class GatewayRoutesPropertiesTest {
                     "gateway.routes[0].paths[1]=/api/v1/users");
 
     @Test
-    void validTableIsBound() {
+    void shouldBindValidRouteTable() {
         runner.run(context -> {
             assertThat(context).hasNotFailed();
             GatewayRoutesProperties properties = context.getBean(GatewayRoutesProperties.class);
@@ -41,7 +41,7 @@ class GatewayRoutesPropertiesTest {
     }
 
     @Test
-    void duplicatedPrefixFails() {
+    void shouldFailWhenPrefixIsDuplicated() {
         assertStartupFailsWith("hay prefijos duplicados",
                 "gateway.routes[1].id=ms08",
                 "gateway.routes[1].uri=http://ms08-analytics-and-audit:8088",
@@ -49,7 +49,7 @@ class GatewayRoutesPropertiesTest {
     }
 
     @Test
-    void duplicatedRouteIdFails() {
+    void shouldFailWhenRouteIdIsDuplicated() {
         assertStartupFailsWith("ids de ruta duplicados",
                 "gateway.routes[1].id=ms01",
                 "gateway.routes[1].uri=http://ms01-identity-and-access:8081",
@@ -57,38 +57,38 @@ class GatewayRoutesPropertiesTest {
     }
 
     @Test
-    void missingDestinationVariableFails() {
+    void shouldFailWhenDestinationVariableIsMissing() {
         assertStartupFailsWith("MS01_URI", "gateway.routes[0].uri=${MS01_URI}");
     }
 
     @Test
-    void emptyDestinationFails() {
+    void shouldFailWhenDestinationIsEmpty() {
         assertStartupFailsWith("el destino (MSnn_URI) es obligatorio", "gateway.routes[0].uri=");
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"ms01-identity-and-access:8081", "ftp://ms01:21", "http://ms01:8081/api", "http://ms01:8081?x=1"})
-    void invalidDestinationFails(String uri) {
+    void shouldFailWhenDestinationIsInvalid(String uri) {
         assertStartupFailsWith("el destino debe ser una URI http(s) absoluta", "gateway.routes[0].uri=" + uri);
     }
 
     @Test
-    void malformedDestinationFails() {
+    void shouldFailWhenDestinationIsMalformed() {
         assertStartupFailsWith("gateway.routes[0].uri", "gateway.routes[0].uri=http://ms 01:8081");
     }
 
     @Test
-    void prefixOutsideApiV1Fails() {
+    void shouldFailWhenPrefixIsOutsideApiV1() {
         assertStartupFailsWith("todo prefijo debe estar bajo /api/v1/", "gateway.routes[0].paths[0]=/auth/**");
     }
 
     @Test
-    void nonPositiveTimeoutFails() {
+    void shouldFailWhenTimeoutIsNotPositive() {
         assertStartupFailsWith("GATEWAY_DOWNSTREAM_TIMEOUT_MS debe ser mayor que 0", "gateway.downstream-timeout=0ms");
     }
 
     @Test
-    void emptyTableFails() {
+    void shouldFailWhenRouteTableIsEmpty() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(ValidationAutoConfiguration.class))
                 .withUserConfiguration(PropertiesConfig.class)

@@ -17,7 +17,7 @@ class GatewayServiceApplicationTests {
     private RouteLocator routeLocator;
 
     @Test
-    void contextLoadsWithTheMs01RoutesOfTheTable() {
+    void shouldLoadContextWithMs01RoutesOfTheTable() {
         assertThat(routeLocator.getRoutes().map(Route::getId).collectList().block()).containsExactlyInAnyOrder(
                 "ms01:/api/v1/auth/**", "ms01:/api/v1/users", "ms01:/api/v1/users/**", "ms01:/api/v1/roles");
     }
