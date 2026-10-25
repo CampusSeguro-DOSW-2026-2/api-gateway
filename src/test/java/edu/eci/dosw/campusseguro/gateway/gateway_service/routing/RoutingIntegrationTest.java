@@ -47,7 +47,7 @@ class RoutingIntegrationTest {
     }
 
     @Test
-    void loginReachesMs01WithMethodPathQueryAndBodyUnchanged() {
+    void shouldForwardLoginToMs01WithMethodPathQueryAndBodyUnchanged() {
         String body = "{\"correo\":\"maria.perez@escuelaing.edu.co\",\"contrasena\":\"Campus#2026\"}";
         MS01.respond(200, "{\"token\":\"abc\",\"tipo\":\"Bearer\"}");
 
@@ -66,7 +66,7 @@ class RoutingIntegrationTest {
     }
 
     @Test
-    void registerReachesMs01AndItsStatusIsReturned() {
+    void shouldForwardRegisterToMs01AndReturnItsStatus() {
         MS01.respond(201, "{\"id\":\"3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42\"}");
 
         client().post().uri("/api/v1/auth/register")
@@ -79,7 +79,7 @@ class RoutingIntegrationTest {
     }
 
     @Test
-    void everyPublishedMs01PrefixIsRouted() {
+    void shouldRouteEveryPublishedMs01Prefix() {
         client().get().uri("/api/v1/users").exchange().expectStatus().isOk();
         client().get().uri("/api/v1/users/3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42").exchange().expectStatus().isOk();
         client().patch().uri("/api/v1/users/status").exchange().expectStatus().isOk();
@@ -91,7 +91,7 @@ class RoutingIntegrationTest {
     }
 
     @Test
-    void unusualVerbIsForwardedAndTheMsAnswersIt() {
+    void shouldForwardUnusualVerbAndLetTheMsAnswer() {
         MS01.respond(405, "{\"status\":405}");
 
         client().delete().uri("/api/v1/roles").exchange().expectStatus().isEqualTo(405);
@@ -100,7 +100,7 @@ class RoutingIntegrationTest {
     }
 
     @Test
-    void unknownRouteReturns404WithoutCallingAnyMs() {
+    void shouldReturn404WithoutCallingAnyMsWhenRouteIsUnknown() {
         String body = client().get().uri("/api/v1/inexistente")
                 .exchange()
                 .expectStatus().isNotFound()
@@ -112,7 +112,7 @@ class RoutingIntegrationTest {
     }
 
     @Test
-    void routeOutsideThePublishedPrefixesIsNotRouted() {
+    void shouldNotRouteOutsideThePublishedPrefixes() {
         client().get().uri("/api/v1/rolesx").exchange().expectStatus().isNotFound();
         client().get().uri("/users").exchange().expectStatus().isNotFound();
 

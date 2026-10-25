@@ -7,14 +7,14 @@ import org.junit.jupiter.api.Test;
 class PathSpecificityTest {
 
     @Test
-    void literalPrefixStopsAtTheFirstWildcard() {
+    void shouldStopLiteralPrefixAtFirstWildcard() {
         assertThat(PathSpecificity.literalPrefix("/api/v1/users/**")).isEqualTo("/api/v1/users");
         assertThat(PathSpecificity.literalPrefix("/api/v1/users/{id}")).isEqualTo("/api/v1/users");
         assertThat(PathSpecificity.literalPrefix("/api/v1/roles")).isEqualTo("/api/v1/roles");
     }
 
     @Test
-    void moreSpecificPrefixIsEvaluatedFirst() {
+    void shouldEvaluateMoreSpecificPrefixFirst() {
         assertThat(PathSpecificity.orderOf("/api/v1/users/status/**"))
                 .isLessThan(PathSpecificity.orderOf("/api/v1/users/**"));
         assertThat(PathSpecificity.orderOf("/api/v1/users/**"))

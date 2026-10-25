@@ -25,7 +25,7 @@ class GatewayErrorWebExceptionHandlerTest {
             MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users"));
 
     @Test
-    void unresolvedExceptionIsAGenericInternalError() {
+    void shouldReturnGenericInternalErrorForUnresolvedException() {
         StepVerifier.create(handler.handle(exchange, new IllegalStateException("detalle interno"))).verifyComplete();
 
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -35,14 +35,14 @@ class GatewayErrorWebExceptionHandlerTest {
     }
 
     @Test
-    void firstMatchingResolverWins() {
+    void shouldUseFirstMatchingResolver() {
         StepVerifier.create(handler.handle(exchange, new ResponseStatusException(HttpStatus.NOT_FOUND))).verifyComplete();
 
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
-    void correlationIdOfTheExchangeIsReused() {
+    void shouldReuseCorrelationIdOfTheExchange() {
         String correlationId = "c19b472d-7a2a-4d3b-a12b-abcdef123456";
         exchange.getAttributes().put(CorrelationIdProvider.ATTRIBUTE, correlationId);
 
@@ -52,7 +52,7 @@ class GatewayErrorWebExceptionHandlerTest {
     }
 
     @Test
-    void committedResponsePropagatesTheError() {
+    void shouldPropagateErrorWhenResponseIsCommitted() {
         exchange.getResponse().setComplete().block();
         IllegalStateException failure = new IllegalStateException();
 

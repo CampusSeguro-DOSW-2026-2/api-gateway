@@ -16,7 +16,7 @@ class DownstreamFailureErrorResolverTest {
     private final DownstreamFailureErrorResolver resolver = new DownstreamFailureErrorResolver();
 
     @Test
-    void timeoutsMapTo504() {
+    void shouldMapTimeoutsTo504() {
         assertThat(resolver.resolve(new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT))).contains(GatewayError.TIMEOUT);
         assertThat(resolver.resolve(new org.springframework.cloud.gateway.support.TimeoutException("t")))
                 .contains(GatewayError.TIMEOUT);
@@ -26,14 +26,14 @@ class DownstreamFailureErrorResolverTest {
     }
 
     @Test
-    void unreachableDestinationMapsTo502() {
+    void shouldMapUnreachableDestinationTo502() {
         assertThat(resolver.resolve(new ConnectException("refused"))).contains(GatewayError.SERVICE_UNAVAILABLE);
         assertThat(resolver.resolve(new RuntimeException(new UnknownHostException("ms01"))))
                 .contains(GatewayError.SERVICE_UNAVAILABLE);
     }
 
     @Test
-    void otherExceptionsAreNotResolved() {
+    void shouldNotResolveOtherExceptions() {
         assertThat(resolver.resolve(new IllegalStateException("x"))).isEmpty();
         assertThat(resolver.resolve(new ResponseStatusException(HttpStatus.NOT_FOUND))).isEmpty();
     }

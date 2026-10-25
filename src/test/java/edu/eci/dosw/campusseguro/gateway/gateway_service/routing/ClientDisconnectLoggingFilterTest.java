@@ -21,7 +21,7 @@ class ClientDisconnectLoggingFilterTest {
     private final ClientDisconnectLoggingFilter filter = new ClientDisconnectLoggingFilter();
 
     @Test
-    void cancellationReachesTheDownstreamCallAndIsLogged(CapturedOutput output) {
+    void shouldCancelDownstreamCallAndLogWhenClientDisconnects(CapturedOutput output) {
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users"));
         exchange.getAttributes().put(GATEWAY_ROUTE_ATTR, Route.async()
                 .id("ms01:/api/v1/users").uri("http://ms01:8081").predicate(e -> true)

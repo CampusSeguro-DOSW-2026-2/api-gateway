@@ -54,7 +54,7 @@ class DownstreamFailureIntegrationTest {
     }
 
     @Test
-    void slowDestinationReturns504WithoutRetrying() {
+    void shouldReturn504WithoutRetryingWhenDestinationIsSlow() {
         String body = client().get().uri("/api/v1/slow/recurso")
                 .exchange()
                 .expectStatus().isEqualTo(504)
@@ -65,7 +65,7 @@ class DownstreamFailureIntegrationTest {
     }
 
     @Test
-    void closedPortReturns502WithoutInternalDetails() {
+    void shouldReturn502WithoutInternalDetailsWhenPortIsClosed() {
         String body = client().get().uri("/api/v1/closed/recurso")
                 .exchange()
                 .expectStatus().isEqualTo(502)
@@ -75,7 +75,7 @@ class DownstreamFailureIntegrationTest {
     }
 
     @Test
-    void unknownHostReturns502WithoutInternalDetails() {
+    void shouldReturn502WithoutInternalDetailsWhenHostIsUnknown() {
         String body = client().post().uri("/api/v1/unknown-host/recurso")
                 .exchange()
                 .expectStatus().isEqualTo(502)
