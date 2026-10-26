@@ -4,28 +4,19 @@ import static edu.eci.dosw.campusseguro.gateway.gateway_service.support.ErrorRes
 import static org.assertj.core.api.Assertions.assertThat;
 
 import edu.eci.dosw.campusseguro.gateway.gateway_service.support.DownstreamStub;
+import edu.eci.dosw.campusseguro.gateway.gateway_service.support.GatewayIntegrationTest;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.support.DownstreamStub.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.web.reactive.server.WebTestClient;
 
 /** CA-GW-01-01, CA-GW-01-02, RN-GW-05 e INT-GW-01 (parte de enrutamiento). */
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-class RoutingIntegrationTest {
+class RoutingIntegrationTest extends GatewayIntegrationTest {
 
     private static final DownstreamStub MS01 = DownstreamStub.start();
-
-    @LocalServerPort
-    private int port;
 
     @DynamicPropertySource
     static void routes(DynamicPropertyRegistry registry) {
@@ -40,10 +31,6 @@ class RoutingIntegrationTest {
     @BeforeEach
     void reset() {
         MS01.reset();
-    }
-
-    private WebTestClient client() {
-        return WebTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
     }
 
     @Test

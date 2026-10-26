@@ -3,29 +3,20 @@ package edu.eci.dosw.campusseguro.gateway.gateway_service.correlation;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import edu.eci.dosw.campusseguro.gateway.gateway_service.support.DownstreamStub;
+import edu.eci.dosw.campusseguro.gateway.gateway_service.support.GatewayIntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
-import org.springframework.test.web.reactive.server.WebTestClient;
 
 /** CA-GW-06-01 a CA-GW-06-03, RN-GW-16 e INT-GW-08. */
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-class CorrelationIntegrationTest {
+class CorrelationIntegrationTest extends GatewayIntegrationTest {
 
     private static final String VALID_V4 = "c19b472d-7a2a-4d3b-a12b-abcdef123456";
     private static final DownstreamStub MS01 = DownstreamStub.start();
-
-    @LocalServerPort
-    private int port;
 
     @DynamicPropertySource
     static void routes(DynamicPropertyRegistry registry) {
@@ -40,10 +31,6 @@ class CorrelationIntegrationTest {
     @BeforeEach
     void reset() {
         MS01.reset();
-    }
-
-    private WebTestClient client() {
-        return WebTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
     }
 
     private String receivedByMs01() {

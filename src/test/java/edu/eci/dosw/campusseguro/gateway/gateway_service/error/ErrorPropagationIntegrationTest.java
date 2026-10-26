@@ -3,30 +3,22 @@ package edu.eci.dosw.campusseguro.gateway.gateway_service.error;
 import static edu.eci.dosw.campusseguro.gateway.gateway_service.support.ErrorResponseAssertions.assertGatewayError;
 
 import edu.eci.dosw.campusseguro.gateway.gateway_service.support.DownstreamStub;
+import edu.eci.dosw.campusseguro.gateway.gateway_service.support.GatewayIntegrationTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 /** INT-GW-06, INT-GW-07 y CA-GW-05-02 a CA-GW-05-04. */
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-class ErrorPropagationIntegrationTest {
+class ErrorPropagationIntegrationTest extends GatewayIntegrationTest {
 
     private static final String CORRELATION_ID = "c19b472d-7a2a-4d3b-a12b-abcdef123456";
     private static final DownstreamStub MS01 = DownstreamStub.start();
-
-    @LocalServerPort
-    private int port;
 
     @DynamicPropertySource
     static void routes(DynamicPropertyRegistry registry) {
@@ -49,8 +41,7 @@ class ErrorPropagationIntegrationTest {
     }
 
     private WebTestClient.ResponseSpec post() {
-        return WebTestClient.bindToServer().baseUrl("http://localhost:" + port).build()
-                .post().uri("/api/v1/auth/register")
+        return anonymousClient().post().uri("/api/v1/auth/register")
                 .header("X-Correlation-ID", CORRELATION_ID)
                 .exchange();
     }

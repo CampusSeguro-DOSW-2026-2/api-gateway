@@ -73,3 +73,6 @@ build/
 !**/src/test/**/build/
 
 .opencode
+
+# Llaves (nunca en el repositorio)
+*.pem
