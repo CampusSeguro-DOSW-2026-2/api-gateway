@@ -1,2 +1,4 @@
 # Red interna de Docker: nombre DNS del contenedor (= repositorio), nunca localhost.
 MS01_URI: http://ms01-identity-and-access:8081
+# Origen del frontend en el navegador.
+CORS_ALLOWED_ORIGINS: http://localhost:5173

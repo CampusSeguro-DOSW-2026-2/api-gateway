@@ -78,6 +78,6 @@ class GatewayErrorContractTest {
         assertThat(body).doesNotContain("detalle-interno-secreto", "IllegalStateException");
         assertThat(output).contains("correlation_id=" + CORRELATION_ID)
                 .contains("java.lang.IllegalStateException: detalle-interno-secreto")
-                .contains("\tat ");
+                .contains("at edu.eci.dosw.campusseguro");
     }
 }
