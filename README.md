@@ -94,17 +94,36 @@ curl -i http://localhost:8080/api/v1/inexistente -H 'X-Correlation-ID: c19b472d-
 curl -i http://localhost:8080/api/v1/inexistente -H 'X-Correlation-ID: no-es-uuid'
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/inexistente -H "X-Correlation-ID: no-es-uuid"
 
-# 17. Health del GW en el puerto de gestión
+# 17. Preflight CORS desde el origen permitido (perfil local: http://localhost:5173): 200 con Access-Control-*, sin JWT y sin llamar a MS01
+curl -i -X OPTIONS http://localhost:8080/api/v1/users/me -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: authorization'
+# [Windows]: curl.exe -i -X OPTIONS http://localhost:8080/api/v1/users/me -H "Origin: http://localhost:5173" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: authorization"
+
+# 18. Preflight desde otro origen o pidiendo una cabecera interna (X-User-Role): 403 PROHIBIDO sin Access-Control-Allow-Origin
+curl -i -X OPTIONS http://localhost:8080/api/v1/users/me -H 'Origin: https://otro-sitio.com' -H 'Access-Control-Request-Method: GET'
+curl -i -X OPTIONS http://localhost:8080/api/v1/users/me -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: x-user-role'
+# [Windows]: curl.exe -i -X OPTIONS http://localhost:8080/api/v1/users/me -H "Origin: https://otro-sitio.com" -H "Access-Control-Request-Method: GET"
+# [Windows]: curl.exe -i -X OPTIONS http://localhost:8080/api/v1/users/me -H "Origin: http://localhost:5173" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: x-user-role"
+
+# 19. Preflight a una ruta inexistente: 404 NO_ENCONTRADO
+curl -i -X OPTIONS http://localhost:8080/api/v1/inexistente -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: GET'
+# [Windows]: curl.exe -i -X OPTIONS http://localhost:8080/api/v1/inexistente -H "Origin: http://localhost:5173" -H "Access-Control-Request-Method: GET"
+
+# 20. Solicitud real desde el origen permitido: Access-Control-Allow-Origin y Access-Control-Expose-Headers: X-Correlation-ID
+curl -i -X POST http://localhost:8080/api/v1/auth/login -H 'Origin: http://localhost:5173'
+# [Windows]: curl.exe -i -X POST http://localhost:8080/api/v1/auth/login -H "Origin: http://localhost:5173"
+
+# 21. Health del GW en el puerto de gestión
 curl http://localhost:9090/actuator/health
 # [Windows]: curl.exe http://localhost:9090/actuator/health
 
-# 18. Configuración inválida (timeout o JWT_PUBLIC_KEY ausente/inválida): el GW no arranca y el log indica la causa
+# 22. Configuración inválida (timeout, JWT_PUBLIC_KEY o CORS_ALLOWED_ORIGINS inválidos): el GW no arranca y el log indica la causa
 mvn spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments=--gateway.downstream-timeout=0ms
 # [Windows PowerShell]: mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.arguments=--gateway.downstream-timeout=0ms"
 
-# 19. Construir la imagen Docker
+# 23. Construir la imagen Docker
 docker build -t campusseguro/api-gateway:local .
 
-# 20. Ejecutar la imagen (perfil docker; toma JWT_PUBLIC_KEY de la terminal del paso 4; un destino inalcanzable responde 502)
-docker run --rm -p 8080:8080 -e JWT_PUBLIC_KEY campusseguro/api-gateway:local
+# 24. Ejecutar la imagen (perfil docker; toma JWT_PUBLIC_KEY de la terminal del paso 4 y exige el origen del frontend;
+#     un destino inalcanzable responde 502)
+docker run --rm -p 8080:8080 -e JWT_PUBLIC_KEY -e CORS_ALLOWED_ORIGINS=http://localhost:5173 campusseguro/api-gateway:local
 ```
