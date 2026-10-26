@@ -13,7 +13,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,9 +27,6 @@ import org.springframework.stereotype.Component;
 public class JwtValidator {
 
     private static final Logger log = LoggerFactory.getLogger(JwtValidator.class);
-    private static final Pattern UUID = Pattern.compile(
-            "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", Pattern.CASE_INSENSITIVE);
-    private static final Pattern ROLE = Pattern.compile("^[A-Z][A-Z0-9_]*$");
 
     private final RSASSAVerifier verifier;
     private final JwtProperties properties;
@@ -123,7 +119,7 @@ public class JwtValidator {
 
     private static String subject(JWTClaimsSet claims) {
         String subject = claims.getSubject();
-        if (subject == null || !UUID.matcher(subject).matches()) {
+        if (!IdentityFormat.isUserId(subject)) {
             throw reject("sub no es UUID");
         }
         return subject;
@@ -133,7 +129,7 @@ public class JwtValidator {
         if (!(claims.getClaim("roles") instanceof List<?> roles) || roles.isEmpty()) {
             throw reject("roles ausente o vacío");
         }
-        if (!roles.stream().allMatch(role -> role instanceof String text && ROLE.matcher(text).matches())) {
+        if (!roles.stream().allMatch(IdentityFormat::isRole)) {
             throw reject("roles con formato inválido");
         }
         return roles.stream().map(String.class::cast).toList();

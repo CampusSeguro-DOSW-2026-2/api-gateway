@@ -64,31 +64,33 @@ class IdentityIntegrationTest extends GatewayIntegrationTest {
                 .header("X-User-Id", "11111111-1111-4111-8111-111111111111")
                 .header("x-user-role", "ADMIN")
                 .header("X-Service-Name", "ms08")
-                .header("X-Service-Key", "clave-robada")
                 .exchange().expectStatus().isOk();
 
         RecordedRequest request = receivedByMs01();
         assertThat(request.header("X-User-Id")).containsExactly(TestJwt.USER_ID);
         assertThat(request.header("X-User-Role")).containsExactly("ESTUDIANTE");
         assertThat(request.header("X-Service-Name")).isEmpty();
-        assertThat(request.header("X-Service-Key")).isEmpty();
     }
 
     @Test
     void shouldNotForwardIdentityNorCredentialsOnPublicRoutes() {
+        // Authorization y X-Service-Key juntas son 400 (RF-GW-08, A2): cada credencial va en su propia solicitud.
         anonymousClient().post().uri("/api/v1/auth/login")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + TestJwt.validToken())
                 .header("X-User-Id", TestJwt.USER_ID)
                 .header("X-User-Role", "ADMIN")
                 .header("X-Service-Name", "ms01")
+                .exchange().expectStatus().isOk();
+        anonymousClient().post().uri("/api/v1/auth/login")
                 .header("X-Service-Key", "clave-robada")
                 .exchange().expectStatus().isOk();
 
-        RecordedRequest request = receivedByMs01();
-        for (String header : List.of("X-User-Id", "X-User-Role", "X-Service-Name", "X-Service-Key",
-                HttpHeaders.AUTHORIZATION)) {
-            assertThat(request.header(header)).as(header).isEmpty();
-        }
+        assertThat(MS01.requests()).hasSize(2).allSatisfy(request -> {
+            for (String header : List.of("X-User-Id", "X-User-Role", "X-Service-Name", "X-Service-Key",
+                    HttpHeaders.AUTHORIZATION)) {
+                assertThat(request.header(header)).as(header).isEmpty();
+            }
+        });
     }
 
     @Test

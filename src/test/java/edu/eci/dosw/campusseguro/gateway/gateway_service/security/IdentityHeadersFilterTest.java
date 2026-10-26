@@ -104,4 +104,19 @@ class IdentityHeadersFilterTest {
         assertThat(headers.get("X-Correlation-ID")).containsExactly("c19b472d-7a2a-4d3b-a12b-abcdef123456");
         assertThat(headers.get(HttpHeaders.ACCEPT)).containsExactly("application/json");
     }
+
+    @Test
+    void shouldInjectTheServiceNameOfTheAuthenticatedCallerInsteadOfTheSpoofedOne() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(spoofedRequest());
+        exchange.getAttributes().put(CallingService.ATTRIBUTE, new CallingService("ms04"));
+        AtomicReference<HttpHeaders> forwarded = new AtomicReference<>();
+
+        StepVerifier.create(filter.filter(exchange, next -> {
+            forwarded.set(next.getRequest().getHeaders());
+            return Mono.empty();
+        })).verifyComplete();
+
+        assertThat(forwarded.get().get("X-Service-Name")).containsExactly("ms04");
+        assertAbsent(forwarded.get(), "X-Service-Key");
+    }
 }

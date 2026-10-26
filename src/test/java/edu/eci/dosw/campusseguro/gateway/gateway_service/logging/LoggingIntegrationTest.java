@@ -65,17 +65,20 @@ class LoggingIntegrationTest extends GatewayIntegrationTest {
     @Test
     void shouldNotLogPasswordsTokensNorCredentialsOfLoginAndRegister() {
         String token = TestJwt.validToken();
+        // Authorization y X-Service-Key juntas son 400 (RF-GW-08, A2): cada credencial va en su propia solicitud.
         for (String path : List.of("/api/v1/auth/login", "/api/v1/auth/register")) {
-            anonymousClient().post().uri(path)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                    .header("X-Service-Key", "clave-de-servicio-secreta-ms01")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue("{\"correo\":\"maria.perez@escuelaing.edu.co\",\"contrasena\":\"Campus#2026Secreta\"}")
-                    .exchange()
-                    .expectStatus().isOk();
+            for (String[] credential : List.of(new String[] {HttpHeaders.AUTHORIZATION, "Bearer " + token},
+                    new String[] {"X-Service-Key", "clave-de-servicio-secreta-ms01"})) {
+                anonymousClient().post().uri(path)
+                        .header(credential[0], credential[1])
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue("{\"correo\":\"maria.perez@escuelaing.edu.co\",\"contrasena\":\"Campus#2026Secreta\"}")
+                        .exchange()
+                        .expectStatus().isOk();
+            }
         }
 
-        assertThat(MS01.requests()).hasSize(2);
+        assertThat(MS01.requests()).hasSize(4);
         assertThat(logs.asJsonLines()).contains("Solicitud procesada")
                 .doesNotContain("Campus#2026Secreta", token, "clave-de-servicio-secreta-ms01", "Bearer",
                         "Authorization", "maria.perez");

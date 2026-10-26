@@ -14,6 +14,7 @@ import edu.eci.dosw.campusseguro.gateway.gateway_service.error.GatewayErrorWebEx
 import edu.eci.dosw.campusseguro.gateway.gateway_service.error.GatewayException;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.error.GatewayExceptionErrorResolver;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.routing.RouteConfig;
+import edu.eci.dosw.campusseguro.gateway.gateway_service.security.CallingService;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.support.CapturedLogs;
 import java.net.ConnectException;
 import java.time.Duration;
@@ -143,7 +144,7 @@ class AccessLogFilterTest {
     @Test
     void shouldReportTheInternalCallerWhenItIsKnown() {
         MockServerWebExchange exchange = exchange(MockServerHttpRequest.post("/api/v1/audit/events"));
-        exchange.getAttributes().put(AccessLogFilter.ORIGIN_ATTRIBUTE, "ms04");
+        exchange.getAttributes().put(CallingService.ATTRIBUTE, new CallingService("ms04"));
 
         StepVerifier.create(filter.filter(exchange, e -> Mono.empty())).verifyComplete();
 
