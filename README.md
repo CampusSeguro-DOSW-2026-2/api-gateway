@@ -77,25 +77,34 @@ curl -i http://localhost:8080/api/v1/users/me -H 'Authorization: Bearer a' -H 'A
 curl -i http://localhost:8080/api/v1/users/me -H 'Authorization: Bearer <token>'
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/users/me -H "Authorization: Bearer <token>"
 
-# 13. Correlación válida: el UUID v4 enviado vuelve igual en la cabecera X-Correlation-ID y en correlation_id
+# 13. Con MS01 encendido: cabeceras de identidad falsas no llegan al MS; MS01 responde el perfil del dueño del token
+#     (el GW elimina Authorization, X-User-*, X-Service-* del cliente e inyecta X-User-Id/X-User-Role del JWT)
+curl -i http://localhost:8080/api/v1/users/me -H 'Authorization: Bearer <token>' -H 'X-User-Id: 11111111-1111-4111-8111-111111111111' -H 'X-User-Role: ADMIN'
+# [Windows]: curl.exe -i http://localhost:8080/api/v1/users/me -H "Authorization: Bearer <token>" -H "X-User-Id: 11111111-1111-4111-8111-111111111111" -H "X-User-Role: ADMIN"
+
+# 14. Con MS01 encendido y un token de ESTUDIANTE: la acción de ADMIN responde el 403 PROHIBIDO de MS01 sin cambios
+curl -i -X PATCH http://localhost:8080/api/v1/users/status -H 'Authorization: Bearer <token>' -H 'Content-Type: application/json' -d '{"ids":["3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42"],"estado":"INACTIVO"}'
+# [Windows CMD/PowerShell]: curl.exe -i -X PATCH http://localhost:8080/api/v1/users/status -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d "{\"ids\":[\"3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42\"],\"estado\":\"INACTIVO\"}"
+
+# 15. Correlación válida: el UUID v4 enviado vuelve igual en la cabecera X-Correlation-ID y en correlation_id
 curl -i http://localhost:8080/api/v1/inexistente -H 'X-Correlation-ID: c19b472d-7a2a-4d3b-a12b-abcdef123456'
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/inexistente -H "X-Correlation-ID: c19b472d-7a2a-4d3b-a12b-abcdef123456"
 
-# 14. Correlación inválida o ausente: el GW genera un UUID v4 nuevo y no rechaza la solicitud
+# 16. Correlación inválida o ausente: el GW genera un UUID v4 nuevo y no rechaza la solicitud
 curl -i http://localhost:8080/api/v1/inexistente -H 'X-Correlation-ID: no-es-uuid'
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/inexistente -H "X-Correlation-ID: no-es-uuid"
 
-# 15. Health del GW en el puerto de gestión
+# 17. Health del GW en el puerto de gestión
 curl http://localhost:9090/actuator/health
 # [Windows]: curl.exe http://localhost:9090/actuator/health
 
-# 16. Configuración inválida (timeout o JWT_PUBLIC_KEY ausente/inválida): el GW no arranca y el log indica la causa
+# 18. Configuración inválida (timeout o JWT_PUBLIC_KEY ausente/inválida): el GW no arranca y el log indica la causa
 mvn spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments=--gateway.downstream-timeout=0ms
 # [Windows PowerShell]: mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.arguments=--gateway.downstream-timeout=0ms"
 
-# 17. Construir la imagen Docker
+# 19. Construir la imagen Docker
 docker build -t campusseguro/api-gateway:local .
 
-# 18. Ejecutar la imagen (perfil docker; toma JWT_PUBLIC_KEY de la terminal del paso 4; un destino inalcanzable responde 502)
+# 20. Ejecutar la imagen (perfil docker; toma JWT_PUBLIC_KEY de la terminal del paso 4; un destino inalcanzable responde 502)
 docker run --rm -p 8080:8080 -e JWT_PUBLIC_KEY campusseguro/api-gateway:local
 ```
