@@ -1,2 +1,3 @@
-# Desarrollo local: los MS corren en la máquina con su puerto del plan de puertos.
+# Desarrollo local: los MS corren en la máquina con su puerto del plan de puertos; el frontend (Vite) en 5173.
 MS01_URI: http://localhost:8081
+CORS_ALLOWED_ORIGINS: http://localhost:5173
