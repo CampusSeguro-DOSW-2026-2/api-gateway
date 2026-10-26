@@ -25,3 +25,23 @@ gateway:
         - /api/v1/users
         - /api/v1/users/**
         - /api/v1/roles
+
+  # Políticas de acceso por método + ruta exacta (GW-C §3). Lo que no está aquí es protegido (RN-GW-08).
+  # Las públicas deben coincidir con los Estándares §2; agregar una exige PR en los Estándares.
+  access:
+    public-routes:
+      - { method: GET, path: /actuator/health }
+      - { method: POST, path: /api/v1/auth/register }
+      - { method: POST, path: /api/v1/auth/login }
+      - { method: POST, path: /api/v1/auth/password/forgot }
+      - { method: POST, path: /api/v1/auth/password/reset }
+    internal-routes:
+      - { method: POST, path: /api/v1/audit/events }
+
+  # Validación local del JWT emitido por MS01 (Estándares §3).
+  jwt:
+    public-key: ${JWT_PUBLIC_KEY}
+    issuer: ${JWT_ISSUER:ms01-identity-and-access}
+    audience: ${JWT_AUDIENCE:campusseguro}
+    clock-skew: ${JWT_CLOCK_SKEW_SECONDS:30}s
+    max-lifetime: ${JWT_MAX_LIFETIME_SECONDS:3600}s
