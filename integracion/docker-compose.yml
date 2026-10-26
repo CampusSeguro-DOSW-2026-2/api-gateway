@@ -1,0 +1,113 @@
+# Plantilla de integración para el repositorio de cada MS (MS02–MS08). Guía paso a paso: integracion/README.md.
+# Levanta GW (imagen publicada) + MS01 y su base de datos (construidos desde GitHub) + el MS del squad.
+# Solo se publica el 8080 del GW (Estándares §2). Todos los valores salen del .env; aquí no hay secretos.
+#
+# El ejemplo es MS04. Cada squad cambia solo lo marcado con "SQUAD:".
+services:
+  api-gateway:
+    image: ghcr.io/campusseguro-dosw-2026-2/api-gateway:${GW_TAG:-integracion}
+    ports:
+      - "${GW_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatoria}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Tabla de rutas del GW por variables: reemplaza la de la imagen, así que MS01 (ruta 0) se repite tal cual.
+      GATEWAY_ROUTES_0_ID: ms01
+      GATEWAY_ROUTES_0_URI: http://ms01-identity-and-access:8081
+      GATEWAY_ROUTES_0_PATHS: /api/v1/auth/**,/api/v1/users,/api/v1/users/**,/api/v1/roles
+      # SQUAD: ruta 1 = su MS. ID msNN, URI = nombre del servicio de abajo + su puerto, PATHS en el .env.
+      GATEWAY_ROUTES_1_ID: ms04
+      GATEWAY_ROUTES_1_URI: http://ms04-evacuation-and-check-in:8084
+      GATEWAY_ROUTES_1_PATHS: ${SQUAD_PATHS:?SQUAD_PATHS es obligatoria (prefijos de su swagger.yml separados por coma)}
+      # SQUAD: clave de servicio de su MS (GW_SERVICE_KEY_MSNN).
+      GW_SERVICE_KEY_MS04: ${SQUAD_SERVICE_KEY:-}
+      GW_SERVICE_KEY_MS01: ${MS01_SERVICE_KEY:-}
+    networks:
+      - edge
+      - internal
+
+  # SQUAD: nombre del servicio = nombre del repositorio (Estándares §2), p. ej. ms03-alerts-and-emergencies.
+  ms04-evacuation-and-check-in:
+    # Se construye desde este repositorio. Si el MS ya tiene Dockerfile, basta con "build: .".
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM maven:3.9.11-eclipse-temurin-21 AS build
+        WORKDIR /workspace
+        COPY pom.xml .
+        COPY src ./src
+        RUN mvn -B -q package -DskipTests
+        FROM eclipse-temurin:21.0.8_9-jre-noble
+        WORKDIR /app
+        COPY --from=build /workspace/target/*.jar app.jar
+        ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+    environment:
+      # SQUAD: puerto del plan de puertos (MS0N = 808N), el mismo de GATEWAY_ROUTES_1_URI.
+      SERVER_PORT: 8084
+      # Llamadas a otros MS: siempre a través del GW, con la clave propia (Estándares §5).
+      GATEWAY_URL: http://api-gateway:8080
+      GATEWAY_SERVICE_KEY: ${SQUAD_SERVICE_KEY:-}
+      # SQUAD: agregar aquí las variables propias del MS (p. ej. DB_URL, si tiene base de datos).
+    networks:
+      - internal
+
+  ms01-identity-and-access:
+    build:
+      context: https://github.com/CampusSeguro-DOSW-2026-2/ms01-identity-and-access.git#${MS01_REF:-develop}
+      dockerfile_inline: |
+        FROM maven:3.9.11-eclipse-temurin-21 AS build
+        WORKDIR /workspace
+        COPY pom.xml .
+        COPY src ./src
+        RUN mvn -B -q package -DskipTests
+        FROM eclipse-temurin:21.0.8_9-jre-noble
+        WORKDIR /app
+        COPY --from=build /workspace/target/*.jar app.jar
+        ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+    environment:
+      DB_URL: jdbc:postgresql://ms01-db:5432/${MS01_DB_NAME:-campus_db}
+      DB_USERNAME: ${MS01_DB_USERNAME:-campus_user}
+      DB_PASSWORD: ${MS01_DB_PASSWORD:?MS01_DB_PASSWORD es obligatoria}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY es obligatoria (mismo par que JWT_PUBLIC_KEY)}
+      GATEWAY_URL: http://api-gateway:8080
+      GATEWAY_SERVICE_KEY: ${MS01_SERVICE_KEY:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BOOTSTRAP_ADMIN_FIRST_NAME: ${BOOTSTRAP_ADMIN_FIRST_NAME:-}
+      BOOTSTRAP_ADMIN_LAST_NAME: ${BOOTSTRAP_ADMIN_LAST_NAME:-}
+    depends_on:
+      ms01-db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  ms01-db:
+    # Postgres con el esquema de MS01 tomado de su repositorio (carpeta database/).
+    build:
+      context: https://github.com/CampusSeguro-DOSW-2026-2/ms01-identity-and-access.git#${MS01_REF:-develop}
+      dockerfile_inline: |
+        FROM postgres:17-alpine
+        COPY database /docker-entrypoint-initdb.d/
+    environment:
+      POSTGRES_DB: ${MS01_DB_NAME:-campus_db}
+      POSTGRES_USER: ${MS01_DB_USERNAME:-campus_user}
+      POSTGRES_PASSWORD: ${MS01_DB_PASSWORD:?MS01_DB_PASSWORD es obligatoria}
+    volumes:
+      - ms01-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - internal
+
+networks:
+  edge: {}
+  internal:
+    internal: true
+
+volumes:
+  ms01-db-data: {}

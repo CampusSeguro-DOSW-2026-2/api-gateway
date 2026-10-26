@@ -1,5 +1,5 @@
-# Build: Maven + JDK 21 (versión fija)
-FROM maven:3.9.11-eclipse-temurin-21 AS build
+# Build: Maven + JDK 21 (versión fija). Corre en la arquitectura del equipo que construye: el .jar sirve para todas.
+FROM --platform=$BUILDPLATFORM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml .
 RUN mvn -B -q dependency:go-offline

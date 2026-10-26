@@ -189,3 +189,7 @@ MS01_URI=http://localhost:8091 mvn spring-boot:run -Dspring-boot.run.profiles=lo
 docker run --rm --network host -v "$PWD/perf:/scripts:ro" -e MS01_URL=http://localhost:8091 grafana/k6:1.3.0 run /scripts/load-test.js
 # [Windows PowerShell]: docker run --rm -v "${PWD}/perf:/scripts:ro" -e GW_URL=http://host.docker.internal:8080 -e MS01_URL=http://host.docker.internal:8091 grafana/k6:1.3.0 run /scripts/load-test.js
 ```
+
+## Imagen para los demás MS (GHCR)
+
+El CI publica `ghcr.io/campusseguro-dosw-2026-2/api-gateway` desde `feature/integracion` (`:integracion`), `develop` (`:develop`), `main` (`:latest`) y los tags `v1.2.3` (`:1.2.3`); todas llevan además `:sha-xxxxxxx` y sirven en amd64 y arm64. Los squads la usan con la plantilla y la guía de [integracion/](integracion/README.md).
