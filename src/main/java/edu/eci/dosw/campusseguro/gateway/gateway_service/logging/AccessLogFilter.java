@@ -3,6 +3,7 @@ package edu.eci.dosw.campusseguro.gateway.gateway_service.logging;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.correlation.CorrelationIdProvider;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.error.GatewayErrorWebExceptionHandler;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.routing.RouteConfig;
+import edu.eci.dosw.campusseguro.gateway.gateway_service.security.CallingService;
 import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,8 +31,6 @@ import reactor.core.publisher.Mono;
 @Order(Ordered.HIGHEST_PRECEDENCE + 5)
 public class AccessLogFilter implements WebFilter {
 
-    /** Atributo con el llamante ({@code ms01}…{@code ms08}); lo llena RF-GW-08 en las llamadas internas. */
-    public static final String ORIGIN_ATTRIBUTE = AccessLogFilter.class.getName() + ".origin";
     static final String EXTERNAL_ORIGIN = "externo";
     static final String GATEWAY_UPSTREAM = "gw";
     /** Estado registrado cuando el cliente se desconecta antes de recibir respuesta. */
@@ -67,7 +66,7 @@ public class AccessLogFilter implements WebFilter {
                     .addKeyValue("status", status)
                     .addKeyValue("duration_ms", Duration.ofNanos(System.nanoTime() - startNanos).toMillis())
                     .addKeyValue("upstream", upstreamOf(exchange))
-                    .addKeyValue("origen", exchange.getAttributeOrDefault(ORIGIN_ATTRIBUTE, EXTERNAL_ORIGIN))
+                    .addKeyValue("origen", originOf(exchange))
                     .log("Solicitud procesada");
         } catch (RuntimeException e) {
             // Una falla del log nunca altera ni bloquea la respuesta (RF-GW-07, A2).
@@ -87,6 +86,12 @@ public class AccessLogFilter implements WebFilter {
             return Level.ERROR;
         }
         return status >= 400 ? Level.WARN : Level.INFO;
+    }
+
+    /** El MS llamante en las llamadas internas; {@code externo} en el resto. */
+    private static String originOf(ServerWebExchange exchange) {
+        CallingService caller = exchange.getAttribute(CallingService.ATTRIBUTE);
+        return caller == null ? EXTERNAL_ORIGIN : caller.name();
     }
 
     /** El MS si la solicitud se le reenvió; {@code gw} si respondió el propio GW. */

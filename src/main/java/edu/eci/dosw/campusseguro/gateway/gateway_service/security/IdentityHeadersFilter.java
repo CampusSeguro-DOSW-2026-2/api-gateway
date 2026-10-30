@@ -15,11 +15,13 @@ import reactor.core.publisher.Mono;
  *   <li>Elimina, sin distinguir mayúsculas/minúsculas, toda identidad, credencial y cabecera
  *       hop-by-hop que envió el cliente, también en rutas públicas (RN-GW-10, RN-GW-11).</li>
  *   <li>Inyecta una sola {@value #USER_ID} y una sola {@value #USER_ROLE} desde el
- *       {@link AuthenticatedUser} que dejó el control de acceso. Sin él (ruta pública), no hay
- *       identidad.</li>
+ *       {@link AuthenticatedUser} que dejó el control de acceso. Sin él (ruta pública o llamada
+ *       interna sin usuario), no hay identidad.</li>
+ *   <li>En llamadas internas, inyecta {@value #SERVICE_NAME} desde el {@link CallingService}
+ *       identificado por la clave (RF-GW-08).</li>
  * </ol>
- * La identidad nunca se toma de la solicitud: solo del atributo, que llena quien validó la
- * credencial (hoy el JWT; con RF-GW-08, también la clave de servicio).
+ * La identidad nunca se toma de la solicitud: solo de los atributos, que llena quien validó la
+ * credencial (JWT o clave de servicio).
  */
 @Component
 public class IdentityHeadersFilter implements GlobalFilter, Ordered {
@@ -38,12 +40,16 @@ public class IdentityHeadersFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         AuthenticatedUser user = exchange.getAttribute(AuthenticatedUser.ATTRIBUTE);
+        CallingService caller = exchange.getAttribute(CallingService.ATTRIBUTE);
         ServerWebExchange forwarded = exchange.mutate()
                 .request(request -> request.headers(headers -> {
                     REMOVED_HEADERS.forEach(headers::remove);
                     if (user != null) {
                         headers.set(USER_ID, user.userId());
                         headers.set(USER_ROLE, String.join(",", user.roles()));
+                    }
+                    if (caller != null) {
+                        headers.set(SERVICE_NAME, caller.name());
                     }
                 }))
                 .build();
