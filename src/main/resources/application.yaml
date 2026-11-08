@@ -66,6 +66,8 @@ gateway:
       - { method: POST, path: /api/v1/auth/password/reset }
     internal-routes:
       - { method: POST, path: /api/v1/audit/events }
+      - { method: POST, path: /api/v1/users/batch }
+      - { method: GET, path: /api/v1/users/by-role }
 
   # CORS solo en el GW (Estándares §2.1). Métodos y cabeceras son fijos en el código.
   cors:
