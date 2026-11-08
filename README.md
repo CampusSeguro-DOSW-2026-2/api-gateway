@@ -206,4 +206,148 @@ MS01_URI=http://localhost:8091 mvn spring-boot:run -Dspring-boot.run.profiles=lo
 #     está en perf/results/rnf-gw-01.txt)
 docker run --rm --network host -v "$PWD/perf:/scripts:ro" -e MS01_URL=http://localhost:8091 grafana/k6:1.3.0 run /scripts/load-test.js
 # [Windows PowerShell]: docker run --rm -v "${PWD}/perf:/scripts:ro" -e GW_URL=http://host.docker.internal:8080 -e MS01_URL=http://host.docker.internal:8091 grafana/k6:1.3.0 run /scripts/load-test.js
+
+# --- mTLS del perfil cloud en local (ADR-006, INT-GW-16): GW -> Caddy de un MS (plantilla de los squads) -> eco ---
+# Todo queda en infra/mtls/out/, que git ignora. En Windows, los comandos con openssl y curl van en Git Bash.
+
+# 39. Crear las CA de prueba y de producción y el certificado de servidor del MS para esta máquina
+infra/mtls/generar-ca.sh test
+infra/mtls/generar-ca.sh prod
+infra/mtls/emitir-servidor.sh test ms01 localhost,127.0.0.1
+infra/mtls/emitir-servidor.sh prod ms01 localhost,127.0.0.1
+# [Windows]: los mismos cuatro comandos en Git Bash
+
+# 40. Armar la carpeta de la "VM del MS" con la plantilla y los certificados (como la recibe un squad)
+for e in test prod; do mkdir -p infra/mtls/out/vm/certs/$e; cp infra/mtls/out/$e/ms01.crt infra/mtls/out/vm/certs/$e/servidor.crt; cp infra/mtls/out/$e/ms01.key infra/mtls/out/vm/certs/$e/servidor.key; cp infra/mtls/out/$e/ca.pem infra/mtls/out/vm/certs/$e/ca.pem; done
+cp infra/caddy/Caddyfile.microservicio infra/caddy/docker-compose.microservicio.yml infra/mtls/out/vm/
+chmod -R a+rX infra/mtls/out/vm
+# [Windows]: los mismos comandos en Git Bash (sin el chmod)
+
+# 41. Levantar un eco como MS01 de test y el Caddy del MS (443 = prod, 8443 = test; ambos bloques apuntan al eco)
+docker network create campus-edge
+docker run -d --name eco-ms01 --network campus-edge --network-alias ms01-test caddy:2.10.2 caddy respond --listen :8081 --body "ms01 test"
+(cd infra/mtls/out/vm && UPSTREAM_PROD=ms01-test:8081 UPSTREAM_TEST=ms01-test:8081 docker compose -f docker-compose.microservicio.yml up -d)
+# [Windows PowerShell]: los dos primeros comandos iguales y luego:
+# [Windows PowerShell]: cd infra/mtls/out/vm; $env:UPSTREAM_PROD = "ms01-test:8081"; $env:UPSTREAM_TEST = "ms01-test:8081"; docker compose -f docker-compose.microservicio.yml up -d; cd ../../../..
+
+# 42. Sin certificado de cliente, Caddy corta el handshake (certificate required); con el del GW de test, responde el eco;
+#     el GW de test contra el puerto de prod (otra CA) también se rechaza (unknown ca)
+curl --cacert infra/mtls/out/test/ca.pem https://127.0.0.1:8443/
+curl --cacert infra/mtls/out/test/ca.pem --cert-type P12 --cert "infra/mtls/out/test/gw-client.p12:$(cat infra/mtls/out/test/gw-client.pass)" https://127.0.0.1:8443/
+curl --cacert infra/mtls/out/prod/ca.pem --cert-type P12 --cert "infra/mtls/out/test/gw-client.p12:$(cat infra/mtls/out/test/gw-client.pass)" https://127.0.0.1:443/
+# [Windows]: los mismos tres comandos en Git Bash
+
+# 43. GW con el perfil cloud (en la terminal del paso 5): el login llega al eco por mTLS (200 "ms01 test");
+#     con MS01_URI=https://127.0.0.1:443 (el MS de prod no acepta al GW de test) responde 502 SERVICIO_NO_DISPONIBLE
+export GW_CLIENT_KEYSTORE=file:./infra/mtls/out/test/gw-client.p12 GW_TRUSTED_CA=file:./infra/mtls/out/test/ca.pem
+export GW_CLIENT_KEYSTORE_PASSWORD="$(cat infra/mtls/out/test/gw-client.pass)"
+MS01_URI=https://127.0.0.1:8443 mvn spring-boot:run -Dspring-boot.run.profiles=local,cloud
+curl -i -X POST http://localhost:8080/api/v1/auth/login        # en otra terminal
+# [Windows PowerShell]: $env:GW_CLIENT_KEYSTORE = "file:./infra/mtls/out/test/gw-client.p12"; $env:GW_TRUSTED_CA = "file:./infra/mtls/out/test/ca.pem"
+# [Windows PowerShell]: $env:GW_CLIENT_KEYSTORE_PASSWORD = Get-Content infra/mtls/out/test/gw-client.pass -Raw
+# [Windows PowerShell]: $env:MS01_URI = "https://127.0.0.1:8443"; mvn spring-boot:run "-Dspring-boot.run.profiles=local,cloud"
+# [Windows]: curl.exe -i -X POST http://localhost:8080/api/v1/auth/login        # en otra terminal
+
+# 44. Detenga el GW del paso 43 (Ctrl+C). Una contraseña o un keystore inválidos impiden el arranque (RNF-GW-06):
+#     el log dice "password was incorrect" y el proceso termina
+GW_CLIENT_KEYSTORE_PASSWORD=otra mvn spring-boot:run -Dspring-boot.run.profiles=local,cloud
+# [Windows PowerShell]: $env:GW_CLIENT_KEYSTORE_PASSWORD = "otra"; mvn spring-boot:run "-Dspring-boot.run.profiles=local,cloud"
+
+# 45. Bajar la prueba
+(cd infra/mtls/out/vm && UPSTREAM_PROD=x UPSTREAM_TEST=x docker compose -f docker-compose.microservicio.yml down)
+docker rm -f eco-ms01 && docker network rm campus-edge
+# [Windows PowerShell]: cd infra/mtls/out/vm; $env:UPSTREAM_PROD = "x"; $env:UPSTREAM_TEST = "x"; docker compose -f docker-compose.microservicio.yml down; cd ../../../..
+# [Windows PowerShell]: docker rm -f eco-ms01; docker network rm campus-edge
 ```
+
+## Despliegue en la nube (test y producción)
+
+Diseño y riesgos: ADR-006 en la documentación del GW. Cada MS vive en su propia VM (Azure o AWS) y solo el GW llega a
+él: el firewall solo abre sus puertos a la IP del GW y su Caddy exige el certificado de cliente del GW (mTLS). En la
+VM del GW corren dos stacks, `gw-prod` y `gw-test`, detrás de un mismo Caddy de borde:
+
+| Puerto de la VM del GW | Uso |
+|---|---|
+| `80` | Let's Encrypt (Caddy obtiene y renueva el certificado de `APP_DOMAIN`) |
+| `443` | GW de producción |
+| `8443` | GW de prueba |
+
+CI/CD:
+- **Cada push** compila, prueba y analiza el código (`ci.yml`).
+- **En `develop` y `main`**, además, publica la imagen `ghcr.io/campusseguro-dosw-2026-2/api-gateway:sha-xxxxxxx`.
+- **Test es automático:** cada push a `develop` despliega en el entorno `gw-test`.
+- **Producción es manual:** desde `main` y con aprobación, promueve la misma imagen que ya pasó por test.
+
+Los comandos de la VM son de Linux, por SSH. En Windows, los comandos del PC van en Git Bash, salvo los marcados
+`[Windows PowerShell]`.
+
+```bash
+# 1. (PC del dueño del GW, una sola vez) Crear las CA y los certificados de cliente del GW de cada entorno.
+#    Guarde infra/mtls/out/ fuera del repositorio (git ya lo ignora) y nunca reparta ca.key.
+infra/mtls/generar-ca.sh test
+infra/mtls/generar-ca.sh prod
+# [Windows]: los mismos comandos en Git Bash
+
+# 2. (PC) Por cada MS que se integra, emitir su certificado de servidor con la IP estática de su VM y entregarle al squad,
+#    por un canal privado, <msNN>.crt, <msNN>.key y ca.pem de cada entorno (más su GATEWAY_SERVICE_KEY)
+infra/mtls/emitir-servidor.sh test ms01 <IP-VM-ms01>
+infra/mtls/emitir-servidor.sh prod ms01 <IP-VM-ms01>
+
+# 3. (Portal de Azure o AWS) Crear la VM del GW: Ubuntu 24.04, 2 vCPU / 4 GB, disco de 30 GB e IP pública estática
+#    (Azure: IP Standard estática; AWS: Elastic IP). Reglas de entrada del NSG/Security Group:
+#      22/tcp  solo desde su IP          80/tcp, 443/tcp y 8443/tcp desde Internet          nada más (ni 8080 ni 9090)
+#    APP_DOMAIN puede ser <IP>.sslip.io (resuelve a la IP de la VM sin comprar un dominio).
+
+# 4. (PC) Entrar a la VM e instalar Docker (luego salir y volver a entrar para aplicar el grupo docker)
+ssh -i <llave>.pem <usuario>@<IP-VM-GW>
+curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER && exit
+# [Windows PowerShell]: ssh -i <llave>.pem <usuario>@<IP-VM-GW>        (y los mismos comandos dentro de la VM)
+
+# 5. (VM) Instalar el runner self-hosted con la etiqueta gw: en GitHub, repositorio api-gateway > Settings > Actions >
+#    Runners > New self-hosted runner > Linux x64; copiar sus comandos de descarga y luego (con el token que muestra):
+./config.sh --url https://github.com/CampusSeguro-DOSW-2026-2/api-gateway --token <TOKEN> --labels gw --unattended
+sudo ./svc.sh install && sudo ./svc.sh start
+#    Verificación: el runner aparece "Idle" en GitHub. El token nunca va al repositorio ni a capturas.
+
+# 6. (GitHub) El repositorio es público: Settings > Actions > General > "Fork pull request workflows from outside
+#    collaborators" = "Require approval for all external contributors". Así un PR externo no puede ejecutarse en la VM.
+
+# 7. (GitHub) Settings > Environments: crear gw-test (Deployment branches: develop) y gw-prod (Required reviewers: los
+#    responsables del GW; Deployment branches: main). En cada uno, las variables y secretos de la tabla de abajo.
+#    El .p12 se carga en Base64:
+base64 -w0 infra/mtls/out/test/gw-client.p12
+# [Windows PowerShell]: [Convert]::ToBase64String([IO.File]::ReadAllBytes("infra/mtls/out/test/gw-client.p12"))
+
+# 8. Desplegar test: hacer merge a develop. En Actions, el workflow CI termina con el job "desplegar-test", que dice
+#    "Despliegue verificado: health 200 y ruta protegida 401 (test, sha-xxxxxxx)".
+
+# 9. Desplegar producción: hacer merge de develop a main. En Actions > "Desplegar a producción" > Run workflow (rama main),
+#    escribir el tag que ya funcionó en test (sha-xxxxxxx) y aprobar el despliegue. Otro tag anterior = rollback.
+
+# 10. Verificar desde su PC: health y ruta protegida por el GW; acceso directo a un MS bloqueado por su firewall
+curl -i https://<APP_DOMAIN>/actuator/health
+curl -i https://<APP_DOMAIN>:8443/api/v1/users/me
+curl -m 5 -k https://<IP-VM-ms01>:443/
+# [Windows]: curl.exe -i https://<APP_DOMAIN>/actuator/health
+# [Windows]: curl.exe -i https://<APP_DOMAIN>:8443/api/v1/users/me
+# [Windows]: curl.exe -m 5 -k https://<IP-VM-ms01>:443/
+#     Esperado: 200 {"status":"UP"}, 401 NO_AUTENTICADO y timeout (el NSG/SG del MS solo acepta la IP del GW).
+
+# 11. (VM) Operar: estado, logs y reinicio de un entorno (nunca "down -v")
+cd ~/campusseguro/api-gateway/prod && docker compose ps && docker compose logs --tail=100 gateway
+docker compose restart gateway
+```
+
+| En `gw-test` y `gw-prod` | Tipo | Valor |
+|---|---|---|
+| `APP_DOMAIN` | Variable | Igual en los dos, p. ej. `20.98.45.90.sslip.io`. |
+| `ACME_EMAIL` | Variable | Correo para los avisos de Let's Encrypt. Igual en los dos. |
+| `CORS_ALLOWED_ORIGINS` | Variable | Origen del frontend de ese entorno. |
+| `MS01_URI` | Variable | `https://<IP-VM-ms01>:8443` en test y `https://<IP-VM-ms01>:443` en prod. |
+| `GW_EXTRA_ENV` | Variable (opcional) | Líneas `CLAVE=valor` extra, p. ej. las `GATEWAY_ROUTES_*` de otros MS. |
+| `LOG_LEVEL`, `DEPLOY_DIR` | Variable (opcional) | `INFO` y `~/campusseguro/api-gateway` por defecto. |
+| `JWT_PUBLIC_KEY` | Secreto | Llave pública del MS01 de ese entorno (PEM completo). |
+| `GW_CLIENT_P12_BASE64` | Secreto | `gw-client.p12` del entorno, en Base64 (paso 7). |
+| `GW_CLIENT_KEYSTORE_PASSWORD` | Secreto | Contenido de `gw-client.pass` del entorno. |
+| `GW_TRUSTED_CA_PEM` | Secreto | Contenido de `ca.pem` del entorno. |
+| `GW_SERVICE_KEY_MS01` … `_MS08` | Secreto | Solo las de los MS que llaman a través del GW (`openssl rand -base64 48`), distintas por entorno. |
