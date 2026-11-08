@@ -26,7 +26,7 @@ services:
       GW_SERVICE_KEY_MS06: ${GW_SERVICE_KEY_MS06:-}
       GW_SERVICE_KEY_MS07: ${GW_SERVICE_KEY_MS07:-}
       GW_SERVICE_KEY_MS08: ${GW_SERVICE_KEY_MS08:-}
-    # Variables extra del entorno (p. ej. GATEWAY_ROUTES_1_* de otros MS), si las hay.
+    # Variables extra del entorno: las MSnn_URI de los demás MS (las rutas van en application.yaml).
     env_file:
       - path: extra.env
         required: false

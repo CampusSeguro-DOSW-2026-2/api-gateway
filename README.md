@@ -344,7 +344,7 @@ docker compose restart gateway
 | `ACME_EMAIL` | Variable | Correo para los avisos de Let's Encrypt. Igual en los dos. |
 | `CORS_ALLOWED_ORIGINS` | Variable | Origen del frontend de ese entorno. |
 | `MS01_URI` | Variable | `https://<IP-VM-ms01>:8443` en test y `https://<IP-VM-ms01>:443` en prod. |
-| `GW_EXTRA_ENV` | Variable (opcional) | Líneas `CLAVE=valor` extra, p. ej. las `GATEWAY_ROUTES_*` de otros MS. |
+| `GW_EXTRA_ENV` | Variable (opcional) | Líneas `CLAVE=valor` extra: las `MSnn_URI` de los demás MS (p. ej. `MS05_URI=https://<IP>:8443`). Sin `GATEWAY_ROUTES_*`: reemplazan la tabla de rutas completa. |
 | `LOG_LEVEL`, `DEPLOY_DIR` | Variable (opcional) | `INFO` y `~/campusseguro/api-gateway` por defecto. |
 | `JWT_PUBLIC_KEY` | Secreto | Llave pública del MS01 de ese entorno (PEM completo). |
 | `GW_CLIENT_P12_BASE64` | Secreto | `gw-client.p12` del entorno, en Base64 (paso 7). |
