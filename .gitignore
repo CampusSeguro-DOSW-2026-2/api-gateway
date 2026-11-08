@@ -76,3 +76,11 @@ build/
 
 # Llaves (nunca en el repositorio)
 *.pem
+
+# mTLS (ADR-006): las salidas del kit son secretos; solo se versionan los certificados de prueba
+infra/mtls/out/
+*.p12
+*.pass
+*.key
+!src/test/resources/mtls/
+!src/test/resources/mtls/**

@@ -5,6 +5,7 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Optional;
 import java.util.stream.Stream;
+import javax.net.ssl.SSLException;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -13,7 +14,7 @@ import reactor.netty.http.client.PrematureCloseException;
 
 /**
  * Fallos al llamar al MS destino (RF-GW-01, A2/A3): timeout → 504; conexión rechazada, host
- * desconocido o conexión cortada → 502. El timeout se evalúa primero porque el timeout de conexión
+ * desconocido, conexión cortada o TLS rechazado (mTLS, ADR-006) → 502. El timeout se evalúa primero porque el timeout de conexión
  * también es una {@link SocketException}.
  */
 @Component
@@ -44,7 +45,8 @@ public class DownstreamFailureErrorResolver implements GatewayErrorResolver {
     private static boolean isUnreachable(Throwable cause) {
         return cause instanceof SocketException
                 || cause instanceof UnknownHostException
-                || cause instanceof PrematureCloseException;
+                || cause instanceof PrematureCloseException
+                || cause instanceof SSLException;
     }
 
     private static Stream<Throwable> causes(Throwable exception) {
