@@ -42,12 +42,14 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out private.pem
 openssl rsa -in private.pem -pubout -out public.pem
 # [Windows]: los mismos dos comandos en Git Bash (incluye openssl)
 
-# 5. Exportar la llave pública y una clave de servicio de desarrollo (MS04) para el GW (en la misma terminal donde
+# 5. Exportar la llave pública y las claves de servicio de desarrollo (MS04 y MS03) para el GW (en la misma terminal donde
 #    se levanta el GW; la clave real de cada MS se genera con: openssl rand -base64 48)
 export JWT_PUBLIC_KEY="$(cat public.pem)"
 export GW_SERVICE_KEY_MS04=clave-de-desarrollo-ms04-de-mas-de-32-caracteres
+export GW_SERVICE_KEY_MS03=clave-de-desarrollo-ms03-de-mas-de-32-caracteres
 # [Windows PowerShell]: $env:JWT_PUBLIC_KEY = Get-Content public.pem -Raw
 # [Windows PowerShell]: $env:GW_SERVICE_KEY_MS04 = "clave-de-desarrollo-ms04-de-mas-de-32-caracteres"
+# [Windows PowerShell]: $env:GW_SERVICE_KEY_MS03 = "clave-de-desarrollo-ms03-de-mas-de-32-caracteres"
 
 # 6. Levantar el GW en local (8080; Actuator en 9090; MS01 esperado en localhost:8081)
 mvn spring-boot:run -Dspring-boot.run.profiles=local
@@ -106,53 +108,69 @@ curl -i http://localhost:8080/api/v1/users/me -H 'X-Service-Key: clave-de-desarr
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/users/me -H "X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres" -H "X-User-Id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42"
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/users/me -H "X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres" -H "Authorization: Bearer x"
 
-# 18. Correlación válida: el UUID v4 enviado vuelve igual en la cabecera X-Correlation-ID y en correlation_id
+# 18. Con MS01 encendido: rutas internas de MS01 (RF-MS01-09) con la clave de MS03 (sin JWT): MS01 recibe
+#     X-Service-Name: ms03 y responde los usuarios del rol y el batch con usuarios y no_encontrados
+curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE&page=0&size=100" -H 'X-Service-Key: clave-de-desarrollo-ms03-de-mas-de-32-caracteres'
+curl -i -X POST http://localhost:8080/api/v1/users/batch -H 'X-Service-Key: clave-de-desarrollo-ms03-de-mas-de-32-caracteres' -H 'Content-Type: application/json' -d '{"ids":["3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42"]}'
+# [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE&page=0&size=100" -H "X-Service-Key: clave-de-desarrollo-ms03-de-mas-de-32-caracteres"
+# [Windows CMD/PowerShell]: curl.exe -i -X POST http://localhost:8080/api/v1/users/batch -H "X-Service-Key: clave-de-desarrollo-ms03-de-mas-de-32-caracteres" -H "Content-Type: application/json" -d "{\"ids\":[\"3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42\"]}"
+
+# 19. Rutas internas sin clave o con el JWT de un usuario: 401 NO_AUTENTICADO sin llamar a MS01. Con la clave de MS04,
+#     que MS01 no autoriza (INTERNAL_ALLOWED_SERVICES = ms03,ms05), responde el 403 PROHIBIDO de MS01 sin cambios
+curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H 'X-Service-Name: ms03'
+curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H 'Authorization: Bearer <token>'
+curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H 'X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres'
+# [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H "X-Service-Name: ms03"
+# [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H "Authorization: Bearer <token>"
+# [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H "X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres"
+
+# 20. Correlación válida: el UUID v4 enviado vuelve igual en la cabecera X-Correlation-ID y en correlation_id
 curl -i http://localhost:8080/api/v1/inexistente -H 'X-Correlation-ID: c19b472d-7a2a-4d3b-a12b-abcdef123456'
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/inexistente -H "X-Correlation-ID: c19b472d-7a2a-4d3b-a12b-abcdef123456"
 
-# 19. Correlación inválida o ausente: el GW genera un UUID v4 nuevo y no rechaza la solicitud
+# 21. Correlación inválida o ausente: el GW genera un UUID v4 nuevo y no rechaza la solicitud
 curl -i http://localhost:8080/api/v1/inexistente -H 'X-Correlation-ID: no-es-uuid'
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/inexistente -H "X-Correlation-ID: no-es-uuid"
 
-# 20. Preflight CORS desde el origen permitido (perfil local: http://localhost:5173): 200 con Access-Control-*, sin JWT y sin llamar a MS01
+# 22. Preflight CORS desde el origen permitido (perfil local: http://localhost:5173): 200 con Access-Control-*, sin JWT y sin llamar a MS01
 curl -i -X OPTIONS http://localhost:8080/api/v1/users/me -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: authorization'
 # [Windows]: curl.exe -i -X OPTIONS http://localhost:8080/api/v1/users/me -H "Origin: http://localhost:5173" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: authorization"
 
-# 21. Preflight desde otro origen o pidiendo una cabecera interna (X-User-Role): 403 PROHIBIDO sin Access-Control-Allow-Origin
+# 23. Preflight desde otro origen o pidiendo una cabecera interna (X-User-Role): 403 PROHIBIDO sin Access-Control-Allow-Origin
 curl -i -X OPTIONS http://localhost:8080/api/v1/users/me -H 'Origin: https://otro-sitio.com' -H 'Access-Control-Request-Method: GET'
 curl -i -X OPTIONS http://localhost:8080/api/v1/users/me -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: x-user-role'
 # [Windows]: curl.exe -i -X OPTIONS http://localhost:8080/api/v1/users/me -H "Origin: https://otro-sitio.com" -H "Access-Control-Request-Method: GET"
 # [Windows]: curl.exe -i -X OPTIONS http://localhost:8080/api/v1/users/me -H "Origin: http://localhost:5173" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: x-user-role"
 
-# 22. Preflight a una ruta inexistente: 404 NO_ENCONTRADO
+# 24. Preflight a una ruta inexistente: 404 NO_ENCONTRADO
 curl -i -X OPTIONS http://localhost:8080/api/v1/inexistente -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: GET'
 # [Windows]: curl.exe -i -X OPTIONS http://localhost:8080/api/v1/inexistente -H "Origin: http://localhost:5173" -H "Access-Control-Request-Method: GET"
 
-# 23. Solicitud real desde el origen permitido: Access-Control-Allow-Origin y Access-Control-Expose-Headers: X-Correlation-ID
+# 25. Solicitud real desde el origen permitido: Access-Control-Allow-Origin y Access-Control-Expose-Headers: X-Correlation-ID
 curl -i -X POST http://localhost:8080/api/v1/auth/login -H 'Origin: http://localhost:5173'
 # [Windows]: curl.exe -i -X POST http://localhost:8080/api/v1/auth/login -H "Origin: http://localhost:5173"
 
-# 24. Health público del GW (sin JWT): 200 {"status":"UP"}, aunque MS01 esté apagado
+# 26. Health público del GW (sin JWT): 200 {"status":"UP"}, aunque MS01 esté apagado
 curl -i http://localhost:8080/actuator/health
 # [Windows]: curl.exe -i http://localhost:8080/actuator/health
 
-# 25. Métricas solo en el puerto de gestión: 404 en 8080 y 200 en 9090
+# 27. Métricas solo en el puerto de gestión: 404 en 8080 y 200 en 9090
 curl -i http://localhost:8080/actuator/metrics
 curl http://localhost:9090/actuator/metrics
 # [Windows]: curl.exe -i http://localhost:8080/actuator/metrics
 # [Windows]: curl.exe http://localhost:9090/actuator/metrics
 
-# 26. Log de acceso: en la terminal del GW cada solicitud deja una línea JSON "Solicitud procesada" con
+# 28. Log de acceso: en la terminal del GW cada solicitud deja una línea JSON "Solicitud procesada" con
 #     timestamp, level, correlation_id, method, path, status, duration_ms, upstream y origen (sin cuerpos ni tokens)
 
-# 27. Configuración inválida (timeout, JWT_PUBLIC_KEY o CORS_ALLOWED_ORIGINS inválidos): el GW no arranca y el log indica la causa
+# 29. Configuración inválida (timeout, JWT_PUBLIC_KEY o CORS_ALLOWED_ORIGINS inválidos): el GW no arranca y el log indica la causa
 mvn spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments=--gateway.downstream-timeout=0ms
 # [Windows PowerShell]: mvn spring-boot:run "-Dspring-boot.run.profiles=local" "-Dspring-boot.run.arguments=--gateway.downstream-timeout=0ms"
 
-# 28. Construir la imagen Docker
+# 30. Construir la imagen Docker
 docker build -t campusseguro/api-gateway:local .
 
-# 29. Ejecutar la imagen (perfil docker con el frontend en http://localhost:5173; toma JWT_PUBLIC_KEY de la terminal
+# 31. Ejecutar la imagen (perfil docker con el frontend en http://localhost:5173; toma JWT_PUBLIC_KEY de la terminal
 #     del paso 5; un destino inalcanzable responde 502)
 docker run --rm -p 8080:8080 -e JWT_PUBLIC_KEY campusseguro/api-gateway:local
 
@@ -160,31 +178,31 @@ docker run --rm -p 8080:8080 -e JWT_PUBLIC_KEY campusseguro/api-gateway:local
 # Requiere el repositorio ms01-identity-and-access junto a api-gateway y, en la terminal, JWT_PUBLIC_KEY (paso 5)
 # y la llave privada del mismo par para MS01.
 
-# 30. Exportar la llave privada para MS01 y levantar todo
+# 32. Exportar la llave privada para MS01 y levantar todo
 export JWT_PRIVATE_KEY="$(cat private.pem)"
 docker compose up -d --build
 # [Windows PowerShell]: $env:JWT_PRIVATE_KEY = Get-Content private.pem -Raw; docker compose up -d --build
 
-# 31. Registro, login y perfil a través del GW contra el MS01 real (pasos 8, 9 y 13 con MS01 encendido)
+# 33. Registro, login y perfil a través del GW contra el MS01 real (pasos 8, 9 y 13 con MS01 encendido)
 
-# 32. Aislamiento: solo api-gateway publica un puerto; el 9090 del GW no responde desde el host
+# 34. Aislamiento: solo api-gateway publica un puerto; el 9090 del GW no responde desde el host
 docker compose ps
 curl -m 3 http://localhost:9090/actuator/health
 # [Windows]: curl.exe -m 3 http://localhost:9090/actuator/health
 
-# 33. Bajar el despliegue (con -v también se borra la base de datos de MS01)
+# 35. Bajar el despliegue (con -v también se borra la base de datos de MS01)
 docker compose down
 
 # --- Prueba de carga RNF-GW-01 (P95 de latencia agregada <= 50 ms a 50 solicitudes/s durante 60 s) ---
 
-# 34. Levantar el doble de MS01 con latencia fija de 20 ms en el puerto 8091 (se deja corriendo)
+# 36. Levantar el doble de MS01 con latencia fija de 20 ms en el puerto 8091 (se deja corriendo)
 java perf/StubMs01.java 8091 20
 
-# 35. En otra terminal (con JWT_PUBLIC_KEY exportada), levantar el GW apuntando al doble
+# 37. En otra terminal (con JWT_PUBLIC_KEY exportada), levantar el GW apuntando al doble
 MS01_URI=http://localhost:8091 mvn spring-boot:run -Dspring-boot.run.profiles=local
 # [Windows PowerShell]: $env:MS01_URI = "http://localhost:8091"; mvn spring-boot:run "-Dspring-boot.run.profiles=local"
 
-# 36. En otra terminal, ejecutar k6 y guardar el resultado (umbral en latencia_agregada_gw; el resultado de referencia
+# 38. En otra terminal, ejecutar k6 y guardar el resultado (umbral en latencia_agregada_gw; el resultado de referencia
 #     está en perf/results/rnf-gw-01.txt)
 docker run --rm --network host -v "$PWD/perf:/scripts:ro" -e MS01_URL=http://localhost:8091 grafana/k6:1.3.0 run /scripts/load-test.js
 # [Windows PowerShell]: docker run --rm -v "${PWD}/perf:/scripts:ro" -e GW_URL=http://host.docker.internal:8080 -e MS01_URL=http://host.docker.internal:8091 grafana/k6:1.3.0 run /scripts/load-test.js
