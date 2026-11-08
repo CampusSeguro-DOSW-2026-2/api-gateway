@@ -14,7 +14,7 @@ GW - Single point of entry, routing, and cross-cutting controls orchestrator.
 
 El Gateway es la única puerta HTTP de CampusSeguro, tanto para el tráfico externo como entre microservicios. Enruta a MS01–MS08, valida localmente el JWT y propaga la identidad en cabeceras. Además centraliza CORS, la normalización de errores, la correlación y el logging técnico. No administra identidad ni ejecuta lógica de dominio.
 
-* **Ubicación documentation:** [Repositorio de documentacion](https://github.com/CampusSeguro-DOSW-2026-2/documentation/tree/api-gateway-docs)
+* **Ubicación documentation:** [Repositorio de documentacion](https://github.com/CampusSeguro-DOSW-2026-2/documentation/tree/api-gateway/api-gateway)
 
 ## Cómo ejecutar y probar
 
