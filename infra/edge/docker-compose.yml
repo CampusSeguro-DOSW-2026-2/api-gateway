@@ -1,0 +1,30 @@
+# Borde de la VM del GW (ADR-006): lo único que publica puertos (80 para Let's Encrypt, 443 prod y 8443 test).
+# Crea la red campus-edge; los stacks gw-prod y gw-test (infra/docker-compose.prod.yml) se unen a ella.
+# Lo levanta infra/deploy.sh en cada despliegue (es idempotente).
+name: campus-edge
+
+services:
+  caddy:
+    image: caddy:2.10.2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8443:8443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN es obligatoria (p. ej. gw.20.98.45.90.sslip.io)}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL es obligatoria (correo para avisos de Let's Encrypt)}
+    volumes:
+      - ./Caddyfile.gateway:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - edge
+
+networks:
+  edge:
+    name: campus-edge
+
+volumes:
+  caddy-data: {}
+  caddy-config: {}

@@ -1,0 +1,34 @@
+# Caddy de borde en la VM de un microservicio (ADR-006). Plantilla para todos los squads.
+# Solo acepta conexiones TLS que presenten el certificado de cliente del GW del mismo entorno: así nadie más que el
+# GW puede llegar al MS, aunque el firewall falle. :443 = prod y :8443 = test. Si su VM no tiene uno de los dos
+# entornos, borre su bloque. Los certificados los emite el dueño del GW (infra/mtls/emitir-servidor.sh).
+{
+	# Los certificados son de la CA del proyecto: sin Let's Encrypt ni redirección HTTP.
+	auto_https off
+	admin off
+	# El GW llega por IP (sin SNI). Con client_auth, Caddy exige por defecto que el Host coincida con el SNI y
+	# respondería 421; el certificado de cliente se sigue exigiendo y cada entorno tiene su puerto.
+	servers {
+		strict_sni_host insecure_off
+	}
+}
+
+:443 {
+	tls /certs/prod/servidor.crt /certs/prod/servidor.key {
+		client_auth {
+			mode require_and_verify
+			trust_pool file /certs/prod/ca.pem
+		}
+	}
+	reverse_proxy {$UPSTREAM_PROD}
+}
+
+:8443 {
+	tls /certs/test/servidor.crt /certs/test/servidor.key {
+		client_auth {
+			mode require_and_verify
+			trust_pool file /certs/test/ca.pem
+		}
+	}
+	reverse_proxy {$UPSTREAM_TEST}
+}

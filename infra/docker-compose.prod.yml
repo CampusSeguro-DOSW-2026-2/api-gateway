@@ -1,0 +1,43 @@
+# Stack del GW en la nube (ADR-006): uno por entorno en la misma VM (gw-prod y gw-test). No publica puertos: solo
+# el Caddy de borde (infra/edge) llega a él por la red campus-edge, con el alias gw-<entorno>.
+# Lo usa infra/deploy.sh con el .env que escribe en DEPLOY_DIR/<entorno>; no se ejecuta a mano.
+name: gw-${ENTORNO:?ENTORNO es obligatoria (test o prod)}
+
+services:
+  gateway:
+    image: ${IMAGE:?IMAGE es obligatoria}:${TAG:?TAG es obligatoria (sha-xxxxxxx)}
+    restart: unless-stopped
+    # Mismo usuario que escribió los secretos (archivos 0600) en la VM.
+    user: "${RUN_UID:?RUN_UID es obligatoria}:${RUN_GID:?RUN_GID es obligatoria}"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,cloud
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatoria}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS es obligatoria}
+      MS01_URI: ${MS01_URI:?MS01_URI es obligatoria (https://<IP-ms01>:443 o :8443)}
+      GW_CLIENT_KEYSTORE: file:/run/mtls/gw-client.p12
+      GW_CLIENT_KEYSTORE_PASSWORD: ${GW_CLIENT_KEYSTORE_PASSWORD:?GW_CLIENT_KEYSTORE_PASSWORD es obligatoria}
+      GW_TRUSTED_CA: file:/run/mtls/ca.pem
+      GW_SERVICE_KEY_MS01: ${GW_SERVICE_KEY_MS01:-}
+      GW_SERVICE_KEY_MS02: ${GW_SERVICE_KEY_MS02:-}
+      GW_SERVICE_KEY_MS03: ${GW_SERVICE_KEY_MS03:-}
+      GW_SERVICE_KEY_MS04: ${GW_SERVICE_KEY_MS04:-}
+      GW_SERVICE_KEY_MS05: ${GW_SERVICE_KEY_MS05:-}
+      GW_SERVICE_KEY_MS06: ${GW_SERVICE_KEY_MS06:-}
+      GW_SERVICE_KEY_MS07: ${GW_SERVICE_KEY_MS07:-}
+      GW_SERVICE_KEY_MS08: ${GW_SERVICE_KEY_MS08:-}
+    # Variables extra del entorno: las MSnn_URI de los demás MS (las rutas van en application.yaml).
+    env_file:
+      - path: extra.env
+        required: false
+    volumes:
+      - ./mtls:/run/mtls:ro
+    networks:
+      edge:
+        aliases:
+          - gw-${ENTORNO}
+
+networks:
+  edge:
+    name: campus-edge
+    external: true

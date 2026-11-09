@@ -1,0 +1,75 @@
+# Despliegue local (Estándares §2): el GW es la única puerta publicada (8080). Los MS, sus bases de datos
+# y el puerto de gestión del GW (9090) solo existen en la red interna. Los secretos llegan por variables de
+# entorno (o un .env no versionado). Cada MS nuevo se agrega en la red "internal", sin "ports".
+services:
+  api-gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatoria}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      GW_SERVICE_KEY_MS01: ${GW_SERVICE_KEY_MS01:-}
+      GW_SERVICE_KEY_MS02: ${GW_SERVICE_KEY_MS02:-}
+      GW_SERVICE_KEY_MS03: ${GW_SERVICE_KEY_MS03:-}
+      GW_SERVICE_KEY_MS04: ${GW_SERVICE_KEY_MS04:-}
+      GW_SERVICE_KEY_MS05: ${GW_SERVICE_KEY_MS05:-}
+      GW_SERVICE_KEY_MS06: ${GW_SERVICE_KEY_MS06:-}
+      GW_SERVICE_KEY_MS07: ${GW_SERVICE_KEY_MS07:-}
+      GW_SERVICE_KEY_MS08: ${GW_SERVICE_KEY_MS08:-}
+    networks:
+      - edge
+      - internal
+
+  ms01-identity-and-access:
+    # MS01 no publica imagen propia: se construye desde su repositorio, que debe estar junto a api-gateway.
+    build:
+      context: ../ms01-identity-and-access
+      dockerfile_inline: |
+        FROM maven:3.9.11-eclipse-temurin-21 AS build
+        WORKDIR /workspace
+        COPY pom.xml .
+        COPY src ./src
+        RUN mvn -B -q package -DskipTests
+        FROM eclipse-temurin:21.0.8_9-jre-noble
+        WORKDIR /app
+        COPY --from=build /workspace/target/*.jar app.jar
+        ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+    environment:
+      DB_URL: jdbc:postgresql://ms01-db:5432/${MS01_DB_NAME:-campus_db}
+      DB_USERNAME: ${MS01_DB_USERNAME:-campus_user}
+      DB_PASSWORD: ${MS01_DB_PASSWORD:-campus_password}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY es obligatoria (mismo par que JWT_PUBLIC_KEY)}
+      GATEWAY_URL: http://api-gateway:8080
+      GATEWAY_SERVICE_KEY: ${GW_SERVICE_KEY_MS01:-}
+    depends_on:
+      ms01-db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  ms01-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${MS01_DB_NAME:-campus_db}
+      POSTGRES_USER: ${MS01_DB_USERNAME:-campus_user}
+      POSTGRES_PASSWORD: ${MS01_DB_PASSWORD:-campus_password}
+    volumes:
+      - ms01-db-data:/var/lib/postgresql/data
+      - ../ms01-identity-and-access/database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - internal
+
+networks:
+  edge: {}
+  internal:
+    internal: true
+
+volumes:
+  ms01-db-data: {}

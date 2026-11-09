@@ -1,0 +1,26 @@
+# Despliegue en la nube (ADR-006): se activa junto al de Docker con SPRING_PROFILES_ACTIVE=docker,cloud.
+# Los MS solo aceptan al GW por mTLS: el GW presenta su certificado de cliente y solo confía en la CA del entorno.
+# Las rutas son ubicaciones de Spring (file:/ruta o classpath:ruta). Sin estas variables el GW no arranca.
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            ssl:
+              ssl-bundle: gw-cliente
+              trusted-x509-certificates: ${GW_TRUSTED_CA}
+  # Bundle de Spring Boot: carga el certificado de cliente al arrancar, así una ruta o contraseña inválida impide
+  # el arranque (RNF-GW-06).
+  ssl:
+    bundle:
+      jks:
+        gw-cliente:
+          keystore:
+            location: ${GW_CLIENT_KEYSTORE}
+            password: ${GW_CLIENT_KEYSTORE_PASSWORD}
+            type: PKCS12
+
+# Detrás de Caddy: el esquema y el host originales llegan en X-Forwarded-*.
+server:
+  forward-headers-strategy: native
