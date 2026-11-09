@@ -14,8 +14,19 @@ class GatewayServiceApplicationTests extends GatewayIntegrationTest {
     private RouteLocator routeLocator;
 
     @Test
-    void shouldLoadContextWithMs01RoutesOfTheTable() {
+    void shouldLoadContextWithTheRoutesOfTheTable() {
         assertThat(routeLocator.getRoutes().map(Route::getId).collectList().block()).containsExactlyInAnyOrder(
-                "ms01:/api/v1/auth/**", "ms01:/api/v1/users", "ms01:/api/v1/users/**", "ms01:/api/v1/roles");
+                "ms01:/api/v1/auth/**", "ms01:/api/v1/users", "ms01:/api/v1/users/**", "ms01:/api/v1/roles",
+                "ms02:/api/v1/buildings", "ms02:/api/v1/buildings/**", "ms02:/api/v1/floors/**",
+                "ms02:/api/v1/spaces/**", "ms02:/api/v1/safe-zones", "ms02:/api/v1/safe-zones/**",
+                "ms02:/api/v1/evacuation-routes", "ms02:/api/v1/evacuation-routes/**",
+                "ms02:/api/v1/preventive-recommendations", "ms02:/api/v1/preventive-recommendations/**",
+                "ms02:/api/v1/campuses", "ms02:/api/v1/campuses/**", "ms02:/api/v1/open-zones/**",
+                "ms02:/api/v1/exits/**", "ms02:/api/v1/stairs/**", "ms02:/api/v1/public/**",
+                "ms03:/api/v1/alertas", "ms03:/api/v1/alertas/**",
+                "ms04:/api/v1/chi/**",
+                "ms05:/api/v1/brigadistas/**", "ms05:/api/v1/incidentes/**", "ms05:/api/v1/bei/**",
+                "ms06:/api/v1/eventos", "ms06:/api/v1/eventos/**",
+                "ms08:/api/v1/analitica/**", "ms08:/api/v1/auditoria/**", "ms08:/api/v1/audit/events");
     }
 }

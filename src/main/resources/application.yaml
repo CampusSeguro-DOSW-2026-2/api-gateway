@@ -54,6 +54,52 @@ gateway:
         - /api/v1/users
         - /api/v1/users/**
         - /api/v1/roles
+    - id: ms02
+      uri: ${MS02_URI}
+      paths:
+        - /api/v1/buildings
+        - /api/v1/buildings/**
+        - /api/v1/floors/**
+        - /api/v1/spaces/**
+        - /api/v1/safe-zones
+        - /api/v1/safe-zones/**
+        - /api/v1/evacuation-routes
+        - /api/v1/evacuation-routes/**
+        - /api/v1/preventive-recommendations
+        - /api/v1/preventive-recommendations/**
+        - /api/v1/campuses
+        - /api/v1/campuses/**
+        - /api/v1/open-zones/**
+        - /api/v1/exits/**
+        - /api/v1/stairs/**
+        - /api/v1/public/**
+    - id: ms03
+      uri: ${MS03_URI}
+      paths:
+        - /api/v1/alertas
+        - /api/v1/alertas/**
+    - id: ms04
+      uri: ${MS04_URI}
+      paths:
+        - /api/v1/chi/**
+    - id: ms05
+      uri: ${MS05_URI}
+      paths:
+        - /api/v1/brigadistas/**
+        - /api/v1/incidentes/**
+        - /api/v1/bei/**
+    - id: ms06
+      uri: ${MS06_URI}
+      paths:
+        - /api/v1/eventos
+        - /api/v1/eventos/**
+    - id: ms08
+      uri: ${MS08_URI}
+      paths:
+        - /api/v1/analitica/**
+        - /api/v1/auditoria/**
+        # Auditoría de todos los MS (Estándares §12): ruta interna, ya declarada en access.internal-routes.
+        - /api/v1/audit/events
 
   # Políticas de acceso por método + ruta exacta (GW-C §3). Lo que no está aquí es protegido (RN-GW-08).
   # Las públicas deben coincidir con los Estándares §2; agregar una exige PR en los Estándares.

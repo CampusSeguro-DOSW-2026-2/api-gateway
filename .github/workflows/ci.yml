@@ -46,10 +46,13 @@ jobs:
       packages: write
     env:
       PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+      # arm64 (emulado con QEMU, lo más lento del CI) solo para las imágenes de main y de versión; las VM son amd64.
+      PLATFORMS: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: docker/setup-qemu-action@v3
+        if: ${{ contains(env.PLATFORMS, 'arm64') }}
 
       - uses: docker/setup-buildx-action@v3
 
@@ -76,7 +79,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ env.PLATFORMS }}
           push: ${{ env.PUBLISH == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
