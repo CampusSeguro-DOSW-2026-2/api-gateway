@@ -17,6 +17,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.TrustManagerFactory;
 import org.springframework.core.io.ClassPathResource;
@@ -40,7 +41,10 @@ public final class MtlsStub implements AutoCloseable {
         server.setHttpsConfigurator(new HttpsConfigurator(context) {
             @Override
             public void configure(HttpsParameters params) {
-                params.setNeedClientAuth(true);
+                // En JDK 21, HttpsParameters.setNeedClientAuth no llega al handshake: se aplica con SSLParameters.
+                SSLParameters sslParameters = getSSLContext().getDefaultSSLParameters();
+                sslParameters.setNeedClientAuth(true);
+                params.setSSLParameters(sslParameters);
             }
         });
         server.setExecutor(Executors.newCachedThreadPool());

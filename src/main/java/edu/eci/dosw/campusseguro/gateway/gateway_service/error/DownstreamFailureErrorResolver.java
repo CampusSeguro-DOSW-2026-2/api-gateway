@@ -1,5 +1,6 @@
 package edu.eci.dosw.campusseguro.gateway.gateway_service.error;
 
+import io.netty.channel.unix.Errors.NativeIoException;
 import io.netty.handler.timeout.ReadTimeoutException;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -14,8 +15,8 @@ import reactor.netty.http.client.PrematureCloseException;
 
 /**
  * Fallos al llamar al MS destino (RF-GW-01, A2/A3): timeout → 504; conexión rechazada, host
- * desconocido, conexión cortada o TLS rechazado (mTLS, ADR-006) → 502. El timeout se evalúa primero porque el timeout de conexión
- * también es una {@link SocketException}.
+ * desconocido, conexión cortada (también la que reporta el transporte nativo de Netty) o TLS rechazado (mTLS,
+ * ADR-006) → 502. El timeout se evalúa primero porque el timeout de conexión también es una {@link SocketException}.
  */
 @Component
 @Order(200)
@@ -46,6 +47,7 @@ public class DownstreamFailureErrorResolver implements GatewayErrorResolver {
         return cause instanceof SocketException
                 || cause instanceof UnknownHostException
                 || cause instanceof PrematureCloseException
+                || cause instanceof NativeIoException
                 || cause instanceof SSLException;
     }
 
