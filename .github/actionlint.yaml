@@ -1,0 +1,4 @@
+# Etiquetas propias de los runners self-hosted (ADR-006): "gw" es el runner de la VM del GW.
+self-hosted-runner:
+  labels:
+    - gw

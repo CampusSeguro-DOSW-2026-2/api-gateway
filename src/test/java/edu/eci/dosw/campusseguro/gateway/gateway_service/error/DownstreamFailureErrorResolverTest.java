@@ -7,6 +7,7 @@ import io.netty.handler.timeout.ReadTimeoutException;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.util.concurrent.TimeoutException;
+import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -29,6 +30,8 @@ class DownstreamFailureErrorResolverTest {
     void shouldMapUnreachableDestinationTo502() {
         assertThat(resolver.resolve(new ConnectException("refused"))).contains(GatewayError.SERVICE_UNAVAILABLE);
         assertThat(resolver.resolve(new RuntimeException(new UnknownHostException("ms01"))))
+                .contains(GatewayError.SERVICE_UNAVAILABLE);
+        assertThat(resolver.resolve(new RuntimeException(new SSLHandshakeException("certificate_unknown"))))
                 .contains(GatewayError.SERVICE_UNAVAILABLE);
     }
 

@@ -1,0 +1,14 @@
+# Caddy de borde en la VM del GW (ADR-006): la única puerta desde Internet. HTTPS con Let's Encrypt para APP_DOMAIN
+# (Caddy lo obtiene y renueva solo por el puerto 80). :443 = GW de prod y :8443 = GW de test.
+{
+	email {$ACME_EMAIL}
+	admin off
+}
+
+{$APP_DOMAIN}:443 {
+	reverse_proxy gw-prod:8080
+}
+
+{$APP_DOMAIN}:8443 {
+	reverse_proxy gw-test:8080
+}
