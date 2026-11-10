@@ -23,6 +23,7 @@ class GatewayServiceApplicationTests extends GatewayIntegrationTest {
                 "ms02:/api/v1/preventive-recommendations", "ms02:/api/v1/preventive-recommendations/**",
                 "ms02:/api/v1/campuses", "ms02:/api/v1/campuses/**", "ms02:/api/v1/open-zones/**",
                 "ms02:/api/v1/exits/**", "ms02:/api/v1/stairs/**", "ms02:/api/v1/public/**",
+                "ms02:/api/v1/images", "ms02:/api/v1/images/**",
                 "ms03:/api/v1/alertas", "ms03:/api/v1/alertas/**",
                 "ms04:/api/v1/chi/**",
                 "ms05:/api/v1/brigadistas/**", "ms05:/api/v1/incidentes/**", "ms05:/api/v1/bei/**",
