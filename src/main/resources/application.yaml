@@ -93,6 +93,8 @@ gateway:
       paths:
         - /api/v1/eventos
         - /api/v1/eventos/**
+        - /api/v1/tipos-evento
+        - /api/v1/tipos-evento/**
     - id: ms08
       uri: ${MS08_URI}
       paths:
