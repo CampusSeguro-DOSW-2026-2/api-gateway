@@ -90,6 +90,8 @@ gateway:
         - /api/v1/brigadistas/**
         - /api/v1/incidentes/**
         - /api/v1/bei/**
+        - /api/v1/asignaciones/**
+        - /api/v1/responsabilidades/**
     - id: ms06
       uri: ${MS06_URI}
       paths:
