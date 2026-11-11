@@ -73,6 +73,8 @@ gateway:
         - /api/v1/exits/**
         - /api/v1/stairs/**
         - /api/v1/public/**
+        - /api/v1/images
+        - /api/v1/images/**
     - id: ms03
       uri: ${MS03_URI}
       paths:
