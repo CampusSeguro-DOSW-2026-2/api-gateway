@@ -54,6 +54,8 @@ gateway:
         - /api/v1/users
         - /api/v1/users/**
         - /api/v1/roles
+        - /api/v1/roles/**
+        - /api/v1/permissions
     - id: ms02
       uri: ${MS02_URI}
       paths:
@@ -137,6 +139,13 @@ gateway:
     ms06: ${GW_SERVICE_KEY_MS06:}
     ms07: ${GW_SERVICE_KEY_MS07:}
     ms08: ${GW_SERVICE_KEY_MS08:}
+
+  # Cortes de sesión que publica MS01 (Estándares §3, RF-MS01-11): ruta interna que el GW consulta él mismo, sin
+  # publicarla. Por defecto, la dirección de MS01 más la ruta; con mTLS en la nube usa la misma conexión de las rutas.
+  session-cuts:
+    url: ${SESSION_CUTS_URL:${MS01_URI}/api/v1/internal/session-cuts}
+    interval: ${SESSION_CUTS_INTERVAL_SECONDS:4}s
+    timeout: ${SESSION_CUTS_TIMEOUT_SECONDS:3}s
 
   # Validación local del JWT emitido por MS01 (Estándares §3).
   jwt:

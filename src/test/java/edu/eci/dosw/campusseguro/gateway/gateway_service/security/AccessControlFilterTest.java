@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import edu.eci.dosw.campusseguro.gateway.gateway_service.error.GatewayError;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.error.GatewayException;
+import edu.eci.dosw.campusseguro.gateway.gateway_service.sessioncuts.SessionCutSnapshot;
+import edu.eci.dosw.campusseguro.gateway.gateway_service.sessioncuts.SessionCutStore;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.support.TestJwt;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,12 +23,14 @@ import reactor.test.StepVerifier;
 /** Paso 4 del pipeline: política de la ruta + extracción del Bearer (RF-GW-02, A1, A3 y A4). */
 class AccessControlFilterTest {
 
+    private final SessionCutStore sessionCuts = new SessionCutStore();
+
     private final AccessControlFilter filter = new AccessControlFilter(
             new AccessPolicyResolver(new AccessPolicyProperties(
                     List.of(new AccessPolicyProperties.Endpoint(HttpMethod.POST, "/api/v1/auth/login")),
                     List.of(new AccessPolicyProperties.Endpoint(HttpMethod.POST, "/api/v1/audit/events")))),
             new JwtValidator(new JwtProperties(TestJwt.publicKeyPem(), TestJwt.ISSUER, TestJwt.AUDIENCE,
-                    Duration.ofSeconds(30), Duration.ofSeconds(3600))),
+                    Duration.ofSeconds(30), Duration.ofSeconds(3600)), sessionCuts),
             new ServiceKeyAuthenticator(new ServiceKeyProperties(Map.of("ms04", MS04_KEY))));
 
     private static final String MS04_KEY = "clave-de-servicio-ms04-de-al-menos-32-caracteres";
@@ -53,6 +58,9 @@ class AccessControlFilterTest {
         assertThat(forwarded).isTrue();
     }
 
+    /**
+     * Con un Bearer válido queda en el exchange el usuario con sus roles y permisos
+     */
     @Test
     void shouldStoreTheAuthenticatedUserForAValidBearerToken() {
         MockServerWebExchange exchange = exchange(MockServerHttpRequest.get("/api/v1/users/me")
@@ -62,7 +70,34 @@ class AccessControlFilterTest {
 
         assertThat(forwarded).isTrue();
         assertThat((AuthenticatedUser) exchange.getAttribute(AuthenticatedUser.ATTRIBUTE))
-                .isEqualTo(new AuthenticatedUser(TestJwt.USER_ID, TestJwt.ROLES));
+                .isEqualTo(new AuthenticatedUser(TestJwt.USER_ID, TestJwt.ROLES, TestJwt.PERMISSIONS));
+    }
+
+    /**
+     * Un token anterior a un corte de sesión vigente se rechaza con 401
+     */
+    @Test
+    void shouldRejectAValidTokenIssuedBeforeAnActiveSessionCut() {
+        sessionCuts.replace(new SessionCutSnapshot(Map.of(), Map.of("ESTUDIANTE", Instant.now().plusSeconds(5))));
+
+        assertRejectedWith(MockServerHttpRequest.get("/api/v1/users/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + TestJwt.validToken()), GatewayError.UNAUTHORIZED);
+    }
+
+    /**
+     * Los cortes de sesión no afectan a las llamadas internas con clave de servicio
+     */
+    @Test
+    void shouldNotApplySessionCutsToAnInternalCallWithAServiceKey() {
+        sessionCuts.replace(new SessionCutSnapshot(Map.of(STUDENT_ID, Instant.now().plusSeconds(5)), Map.of()));
+
+        run(exchange(MockServerHttpRequest.post("/api/v1/audit/events")
+                .header("X-Service-Key", MS04_KEY)
+                .header("X-User-Id", STUDENT_ID)
+                .header("X-User-Role", "ESTUDIANTE")
+                .header("X-User-Permission", "ms04:checkin:write"))).verifyComplete();
+
+        assertThat(forwarded).isTrue();
     }
 
     @Test
@@ -91,19 +126,24 @@ class AccessControlFilterTest {
 
     private static final String STUDENT_ID = "3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42";
 
+    /**
+     * Una llamada interna conserva la identidad completa del usuario por el que actúa
+     */
     @Test
     void shouldAuthenticateAnInternalCallAndKeepTheUserItActsFor() {
         MockServerWebExchange exchange = exchange(MockServerHttpRequest.post("/api/v1/audit/events")
                 .header("X-Service-Key", MS04_KEY)
                 .header("X-User-Id", STUDENT_ID)
-                .header("X-User-Role", "BRIGADISTA,ESTUDIANTE"));
+                .header("X-User-Role", "BRIGADISTA,ESTUDIANTE")
+                .header("X-User-Permission", "ms04:checkin:write,ms07:content:read"));
 
         run(exchange).verifyComplete();
 
         assertThat(forwarded).isTrue();
         assertThat((CallingService) exchange.getAttribute(CallingService.ATTRIBUTE)).isEqualTo(new CallingService("ms04"));
         assertThat((AuthenticatedUser) exchange.getAttribute(AuthenticatedUser.ATTRIBUTE))
-                .isEqualTo(new AuthenticatedUser(STUDENT_ID, List.of("BRIGADISTA", "ESTUDIANTE")));
+                .isEqualTo(new AuthenticatedUser(STUDENT_ID, List.of("BRIGADISTA", "ESTUDIANTE"),
+                        List.of("ms04:checkin:write", "ms07:content:read")));
     }
 
     @Test
@@ -151,16 +191,26 @@ class AccessControlFilterTest {
                 .header("X-Service-Key", MS04_KEY, MS04_KEY), GatewayError.VALIDATION);
     }
 
-    @org.junit.jupiter.params.ParameterizedTest(name = "X-User-Id={0} X-User-Role={1}")
+    /**
+     * Una identidad propagada incompleta o con formato inválido se rechaza con 400
+     */
+    @org.junit.jupiter.params.ParameterizedTest(name = "X-User-Id={0} X-User-Role={1} X-User-Permission={2}")
     @org.junit.jupiter.params.provider.CsvSource(delimiter = '|', nullValues = "NULL", value = {
-        STUDENT_ID_LITERAL + " | NULL",
-        "NULL | ESTUDIANTE",
-        "no-es-uuid | ESTUDIANTE",
-        STUDENT_ID_LITERAL + " | estudiante",
-        STUDENT_ID_LITERAL + " | 'BRIGADISTA, ESTUDIANTE'",
-        STUDENT_ID_LITERAL + " | 'ESTUDIANTE,'"
+        STUDENT_ID_LITERAL + " | NULL | NULL",
+        STUDENT_ID_LITERAL + " | ESTUDIANTE | NULL",
+        STUDENT_ID_LITERAL + " | NULL | ms04:checkin:write",
+        "NULL | ESTUDIANTE | ms04:checkin:write",
+        "NULL | NULL | ms04:checkin:write",
+        "no-es-uuid | ESTUDIANTE | ms04:checkin:write",
+        STUDENT_ID_LITERAL + " | estudiante | ms04:checkin:write",
+        STUDENT_ID_LITERAL + " | 'BRIGADISTA, ESTUDIANTE' | ms04:checkin:write",
+        STUDENT_ID_LITERAL + " | 'ESTUDIANTE,' | ms04:checkin:write",
+        STUDENT_ID_LITERAL + " | ESTUDIANTE | MS04:checkin:write",
+        STUDENT_ID_LITERAL + " | ESTUDIANTE | ms04:checkin",
+        STUDENT_ID_LITERAL + " | ESTUDIANTE | 'ms04:checkin:write, ms07:content:read'",
+        STUDENT_ID_LITERAL + " | ESTUDIANTE | 'ms04:checkin:write,'"
     })
-    void shouldRejectAnIncompleteOrMalformedPropagatedIdentity(String userId, String roles) {
+    void shouldRejectAnIncompleteOrMalformedPropagatedIdentity(String userId, String roles, String permissions) {
         MockServerHttpRequest.BaseBuilder<?> request = MockServerHttpRequest.post("/api/v1/audit/events")
                 .header("X-Service-Key", MS04_KEY);
         if (userId != null) {
@@ -169,8 +219,23 @@ class AccessControlFilterTest {
         if (roles != null) {
             request.header("X-User-Role", roles);
         }
+        if (permissions != null) {
+            request.header("X-User-Permission", permissions);
+        }
 
         assertRejectedWith(request, GatewayError.VALIDATION);
+    }
+
+    /**
+     * Una cabecera X-User-Permission repetida en una llamada interna se rechaza con 400
+     */
+    @Test
+    void shouldRejectARepeatedPermissionHeaderInAnInternalCall() {
+        assertRejectedWith(MockServerHttpRequest.post("/api/v1/audit/events")
+                .header("X-Service-Key", MS04_KEY)
+                .header("X-User-Id", STUDENT_ID)
+                .header("X-User-Role", "ESTUDIANTE")
+                .header("X-User-Permission", "ms04:checkin:write", "ms07:content:read"), GatewayError.VALIDATION);
     }
 
     private static final String STUDENT_ID_LITERAL = "3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42";

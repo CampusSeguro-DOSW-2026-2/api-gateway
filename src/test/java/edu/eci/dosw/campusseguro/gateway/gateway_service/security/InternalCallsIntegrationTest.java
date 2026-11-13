@@ -73,12 +73,16 @@ class InternalCallsIntegrationTest extends GatewayIntegrationTest {
         logs.close();
     }
 
+    /**
+     * Una llamada interna llega con el nombre del servicio y la identidad del usuario, sin la clave
+     */
     @Test
     void shouldForwardAnInternalCallWithTheServiceNameAndTheUserIdentityButWithoutTheKey() {
         anonymousClient().post().uri("/api/v1/assistance/requests")
                 .header("X-Service-Key", MS04_KEY)
                 .header("X-User-Id", STUDENT_ID)
                 .header("X-User-Role", "ESTUDIANTE")
+                .header("X-User-Permission", "ms04:checkin:write,ms07:content:read")
                 .header("X-Correlation-ID", CORRELATION_ID)
                 .exchange()
                 .expectStatus().isOk();
@@ -87,6 +91,7 @@ class InternalCallsIntegrationTest extends GatewayIntegrationTest {
             assertThat(request.header("X-Service-Name")).containsExactly("ms04");
             assertThat(request.header("X-User-Id")).containsExactly(STUDENT_ID);
             assertThat(request.header("X-User-Role")).containsExactly("ESTUDIANTE");
+            assertThat(request.header("X-User-Permission")).containsExactly("ms04:checkin:write,ms07:content:read");
             assertThat(request.header("X-Correlation-ID")).containsExactly(CORRELATION_ID);
             assertThat(request.header("X-Service-Key")).isEmpty();
         });
@@ -140,18 +145,23 @@ class InternalCallsIntegrationTest extends GatewayIntegrationTest {
         assertThat(MS01.requests()).isEmpty();
     }
 
+    /**
+     * En una ruta protegida la clave de servicio se acepta y se reenvía el usuario por el que actúa
+     */
     @Test
     void shouldAcceptAServiceKeyOnAProtectedRouteAndForwardTheUserItActsFor() {
         anonymousClient().get().uri("/api/v1/users/me")
                 .header("X-Service-Key", MS04_KEY)
                 .header("X-User-Id", STUDENT_ID)
                 .header("X-User-Role", "ESTUDIANTE")
+                .header("X-User-Permission", "ms01:profile:read")
                 .exchange()
                 .expectStatus().isOk();
 
         RecordedRequest request = MS01.requests().get(0);
         assertThat(request.header("X-Service-Name")).containsExactly("ms04");
         assertThat(request.header("X-User-Role")).containsExactly("ESTUDIANTE");
+        assertThat(request.header("X-User-Permission")).containsExactly("ms01:profile:read");
     }
 
     @Test
@@ -159,6 +169,21 @@ class InternalCallsIntegrationTest extends GatewayIntegrationTest {
         anonymousClient().post().uri("/api/v1/assistance/requests")
                 .header("X-Service-Key", MS04_KEY)
                 .header("X-User-Id", STUDENT_ID)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        assertThat(MS05.requests()).isEmpty();
+    }
+
+    /**
+     * Una identidad propagada sin permisos se rechaza con 400 sin llegar al destino
+     */
+    @Test
+    void shouldReturn400WhenThePropagatedIdentityHasNoPermissions() {
+        anonymousClient().post().uri("/api/v1/assistance/requests")
+                .header("X-Service-Key", MS04_KEY)
+                .header("X-User-Id", STUDENT_ID)
+                .header("X-User-Role", "ESTUDIANTE")
                 .exchange()
                 .expectStatus().isBadRequest();
 

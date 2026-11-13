@@ -41,6 +41,9 @@ class Ms01InternalRoutesIntegrationTest extends GatewayIntegrationTest {
         MS01.reset();
     }
 
+    /**
+     * El lote llega con el nombre del servicio y sin la clave ni identidad de usuario
+     */
     @Test
     void shouldForwardTheBatchWithTheServiceNameAndWithoutTheKeyOrAUserIdentity() {
         anonymousClient().post().uri("/api/v1/users/batch")
@@ -57,6 +60,7 @@ class Ms01InternalRoutesIntegrationTest extends GatewayIntegrationTest {
             assertThat(request.header("X-Service-Key")).isEmpty();
             assertThat(request.header("X-User-Id")).isEmpty();
             assertThat(request.header("X-User-Role")).isEmpty();
+            assertThat(request.header("X-User-Permission")).isEmpty();
         });
     }
 

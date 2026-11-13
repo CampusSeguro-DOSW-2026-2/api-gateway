@@ -65,16 +65,40 @@ class RoutingIntegrationTest extends GatewayIntegrationTest {
         assertThat(MS01.requests()).extracting(RecordedRequest::uri).containsExactly("/api/v1/auth/register");
     }
 
+    /**
+     * Cada prefijo publicado de MS01, incluidos los de roles y permisos, llega a MS01
+     */
     @Test
     void shouldRouteEveryPublishedMs01Prefix() {
         client().get().uri("/api/v1/users").exchange().expectStatus().isOk();
         client().get().uri("/api/v1/users/3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42").exchange().expectStatus().isOk();
         client().patch().uri("/api/v1/users/status").exchange().expectStatus().isOk();
         client().get().uri("/api/v1/roles").exchange().expectStatus().isOk();
+        client().get().uri("/api/v1/roles/details").exchange().expectStatus().isOk();
+        client().post().uri("/api/v1/roles").exchange().expectStatus().isOk();
+        client().put().uri("/api/v1/roles/PROFESOR").exchange().expectStatus().isOk();
+        client().delete().uri("/api/v1/roles/PROFESOR").exchange().expectStatus().isOk();
+        client().put().uri("/api/v1/roles/PROFESOR/permissions").exchange().expectStatus().isOk();
+        client().get().uri("/api/v1/permissions").exchange().expectStatus().isOk();
 
         assertThat(MS01.requests()).extracting(RecordedRequest::uri).containsExactly(
                 "/api/v1/users", "/api/v1/users/3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42",
-                "/api/v1/users/status", "/api/v1/roles");
+                "/api/v1/users/status", "/api/v1/roles", "/api/v1/roles/details", "/api/v1/roles",
+                "/api/v1/roles/PROFESOR", "/api/v1/roles/PROFESOR", "/api/v1/roles/PROFESOR/permissions",
+                "/api/v1/permissions");
+    }
+
+    /**
+     * La ruta interna de cortes de sesión no se publica a través del gateway
+     */
+    @Test
+    void shouldNotPublishTheInternalSessionCutsRoute() {
+        client().get().uri("/api/v1/internal/session-cuts").exchange().expectStatus().isNotFound();
+        client().get().uri("/api/v1/internal/session-cuts").header("X-Service-Name", "gateway")
+                .exchange().expectStatus().isNotFound();
+        anonymousClient().get().uri("/api/v1/internal/session-cuts").exchange().expectStatus().isNotFound();
+
+        assertThat(MS01.requests()).isEmpty();
     }
 
     @Test
@@ -101,9 +125,14 @@ class RoutingIntegrationTest extends GatewayIntegrationTest {
         assertThat(MS01.requests()).isEmpty();
     }
 
+    /**
+     * Lo que queda fuera de los prefijos publicados responde 404 sin llamar a MS01
+     */
     @Test
     void shouldNotRouteOutsideThePublishedPrefixes() {
         client().get().uri("/api/v1/rolesx").exchange().expectStatus().isNotFound();
+        client().get().uri("/api/v1/permissionsx").exchange().expectStatus().isNotFound();
+        client().get().uri("/api/v1/permissions/ms01").exchange().expectStatus().isNotFound();
         client().get().uri("/users").exchange().expectStatus().isNotFound();
 
         assertThat(MS01.requests()).isEmpty();
