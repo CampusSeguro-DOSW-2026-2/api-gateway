@@ -115,6 +115,8 @@ gateway:
     public-routes:
       - { method: GET, path: /actuator/health }
       - { method: POST, path: /api/v1/auth/register }
+      - { method: POST, path: /api/v1/auth/register/verify }
+      - { method: POST, path: /api/v1/auth/register/resend }
       - { method: POST, path: /api/v1/auth/login }
       - { method: POST, path: /api/v1/auth/password/forgot }
       - { method: POST, path: /api/v1/auth/password/reset }
