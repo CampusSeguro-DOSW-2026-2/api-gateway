@@ -36,6 +36,8 @@ class AccessPolicyResolverTest {
     @CsvSource({
         "GET,    /actuator/health,             PUBLICA",
         "POST,   /api/v1/auth/register,        PUBLICA",
+        "POST,   /api/v1/auth/register/verify, PUBLICA",
+        "POST,   /api/v1/auth/register/resend, PUBLICA",
         "POST,   /api/v1/auth/login,           PUBLICA",
         "POST,   /api/v1/auth/password/forgot, PUBLICA",
         "POST,   /api/v1/auth/password/reset,  PUBLICA",
@@ -46,6 +48,8 @@ class AccessPolicyResolverTest {
         "POST,   /api/v1/users/by-role,        PROTEGIDA",
         "GET,    /api/v1/users/{id},           PROTEGIDA",
         "GET,    /api/v1/auth/register,        PROTEGIDA",
+        "GET,    /api/v1/auth/register/verify, PROTEGIDA",
+        "POST,   /api/v1/auth/register/otra,   PROTEGIDA",
         "GET,    /api/v1/auth/login,           PROTEGIDA",
         "POST,   /api/v1/auth/logout,          PROTEGIDA",
         "GET,    /api/v1/users/me,             PROTEGIDA",
@@ -59,7 +63,7 @@ class AccessPolicyResolverTest {
 
     @Test
     void shouldDeclareOnlyTheFivePublicRoutesOfTheStandards() {
-        assertThat(loadApplicationYaml().publicRoutes()).hasSize(5);
+        assertThat(loadApplicationYaml().publicRoutes()).hasSize(7);
     }
 
     @Configuration(proxyBeanMethods = false)
