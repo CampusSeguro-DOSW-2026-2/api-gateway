@@ -42,14 +42,16 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out private.pem
 openssl rsa -in private.pem -pubout -out public.pem
 # [Windows]: los mismos dos comandos en Git Bash (incluye openssl)
 
-# 5. Exportar la llave pública y las claves de servicio de desarrollo (MS04 y MS03) para el GW (en la misma terminal donde
-#    se levanta el GW; la clave real de cada MS se genera con: openssl rand -base64 48)
+# 5. Exportar la llave pública y las claves de servicio de desarrollo (MS04, MS03 y MS06) para el GW (en la misma terminal
+#    donde se levanta el GW; la clave real de cada MS se genera con: openssl rand -base64 48)
 export JWT_PUBLIC_KEY="$(cat public.pem)"
 export GW_SERVICE_KEY_MS04=clave-de-desarrollo-ms04-de-mas-de-32-caracteres
 export GW_SERVICE_KEY_MS03=clave-de-desarrollo-ms03-de-mas-de-32-caracteres
+export GW_SERVICE_KEY_MS06=clave-de-desarrollo-ms06-de-mas-de-32-caracteres
 # [Windows PowerShell]: $env:JWT_PUBLIC_KEY = Get-Content public.pem -Raw
 # [Windows PowerShell]: $env:GW_SERVICE_KEY_MS04 = "clave-de-desarrollo-ms04-de-mas-de-32-caracteres"
 # [Windows PowerShell]: $env:GW_SERVICE_KEY_MS03 = "clave-de-desarrollo-ms03-de-mas-de-32-caracteres"
+# [Windows PowerShell]: $env:GW_SERVICE_KEY_MS06 = "clave-de-desarrollo-ms06-de-mas-de-32-caracteres"
 
 # 6. Levantar el GW en local (8080; Actuator en 9090; MS01 esperado en localhost:8081)
 mvn spring-boot:run -Dspring-boot.run.profiles=local
@@ -108,21 +110,26 @@ curl -i http://localhost:8080/api/v1/users/me -H 'X-Service-Key: clave-de-desarr
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/users/me -H "X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres" -H "X-User-Id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42"
 # [Windows]: curl.exe -i http://localhost:8080/api/v1/users/me -H "X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres" -H "Authorization: Bearer x"
 
-# 18. Con MS01 encendido: rutas internas de MS01 (RF-MS01-09) con la clave de MS03 (sin JWT): MS01 recibe
-#     X-Service-Name: ms03 y responde los usuarios del rol y el batch con usuarios y no_encontrados
+# 18. Con MS01 encendido: rutas internas de MS01 (RF-MS01-09) con la clave de MS03 o la de MS04 (sin JWT): MS01 recibe
+#     X-Service-Name: ms03 o ms04 y responde los usuarios del rol y el batch con usuarios y no_encontrados
 curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE&page=0&size=100" -H 'X-Service-Key: clave-de-desarrollo-ms03-de-mas-de-32-caracteres'
 curl -i -X POST http://localhost:8080/api/v1/users/batch -H 'X-Service-Key: clave-de-desarrollo-ms03-de-mas-de-32-caracteres' -H 'Content-Type: application/json' -d '{"ids":["3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42"]}'
+curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE&page=0&size=100" -H 'X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres'
+curl -i -X POST http://localhost:8080/api/v1/users/batch -H 'X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres' -H 'Content-Type: application/json' -d '{"ids":["3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42"]}'
 # [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE&page=0&size=100" -H "X-Service-Key: clave-de-desarrollo-ms03-de-mas-de-32-caracteres"
 # [Windows CMD/PowerShell]: curl.exe -i -X POST http://localhost:8080/api/v1/users/batch -H "X-Service-Key: clave-de-desarrollo-ms03-de-mas-de-32-caracteres" -H "Content-Type: application/json" -d "{\"ids\":[\"3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42\"]}"
+# [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE&page=0&size=100" -H "X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres"
+# [Windows CMD/PowerShell]: curl.exe -i -X POST http://localhost:8080/api/v1/users/batch -H "X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres" -H "Content-Type: application/json" -d "{\"ids\":[\"3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42\"]}"
 
-# 19. Rutas internas sin clave o con el JWT de un usuario: 401 NO_AUTENTICADO sin llamar a MS01. Con la clave de MS04,
-#     que MS01 no autoriza (INTERNAL_ALLOWED_SERVICES = ms03,ms05), responde el 403 PROHIBIDO de MS01 sin cambios
+# 19. Rutas internas sin clave o con el JWT de un usuario: 401 NO_AUTENTICADO sin llamar a MS01. Con la clave de MS06,
+#     que MS01 no autoriza (INTERNAL_ALLOWED_SERVICES = ms03,ms04,ms05 por defecto), responde el 403 PROHIBIDO de MS01
+#     sin cambios
 curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H 'X-Service-Name: ms03'
 curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H 'Authorization: Bearer <token>'
-curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H 'X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres'
+curl -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H 'X-Service-Key: clave-de-desarrollo-ms06-de-mas-de-32-caracteres'
 # [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H "X-Service-Name: ms03"
 # [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H "Authorization: Bearer <token>"
-# [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H "X-Service-Key: clave-de-desarrollo-ms04-de-mas-de-32-caracteres"
+# [Windows]: curl.exe -i "http://localhost:8080/api/v1/users/by-role?rol=ESTUDIANTE" -H "X-Service-Key: clave-de-desarrollo-ms06-de-mas-de-32-caracteres"
 
 # 20. Correlación válida: el UUID v4 enviado vuelve igual en la cabecera X-Correlation-ID y en correlation_id
 curl -i http://localhost:8080/api/v1/inexistente -H 'X-Correlation-ID: c19b472d-7a2a-4d3b-a12b-abcdef123456'
