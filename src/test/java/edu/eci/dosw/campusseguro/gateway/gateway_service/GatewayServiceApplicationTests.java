@@ -13,10 +13,14 @@ class GatewayServiceApplicationTests extends GatewayIntegrationTest {
     @Autowired
     private RouteLocator routeLocator;
 
+    /**
+     * El contexto carga con las rutas de la tabla
+     */
     @Test
     void shouldLoadContextWithTheRoutesOfTheTable() {
         assertThat(routeLocator.getRoutes().map(Route::getId).collectList().block()).containsExactlyInAnyOrder(
                 "ms01:/api/v1/auth/**", "ms01:/api/v1/users", "ms01:/api/v1/users/**", "ms01:/api/v1/roles",
+                "ms01:/api/v1/roles/**", "ms01:/api/v1/permissions",
                 "ms02:/api/v1/buildings", "ms02:/api/v1/buildings/**", "ms02:/api/v1/floors/**",
                 "ms02:/api/v1/spaces/**", "ms02:/api/v1/safe-zones", "ms02:/api/v1/safe-zones/**",
                 "ms02:/api/v1/evacuation-routes", "ms02:/api/v1/evacuation-routes/**",

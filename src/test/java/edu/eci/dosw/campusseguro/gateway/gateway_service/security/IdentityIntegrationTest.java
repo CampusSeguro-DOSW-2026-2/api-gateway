@@ -41,10 +41,19 @@ class IdentityIntegrationTest extends GatewayIntegrationTest {
         return MS01.requests().get(0);
     }
 
+    /**
+     * Crea un token de un usuario con solo el rol ESTUDIANTE y un permiso
+     */
     private static String studentToken() {
-        return TestJwt.sign(TestJwt.validClaims(Instant.now()).claim("roles", List.of("ESTUDIANTE")).build());
+        return TestJwt.sign(TestJwt.validClaims(Instant.now())
+                .claim("roles", List.of("ESTUDIANTE"))
+                .claim("permissions", List.of("ms01:profile:read"))
+                .build());
     }
 
+    /**
+     * Reenvía a MS01 la identidad completa y la correlación, sin el token
+     */
     @Test
     void shouldForwardIdentityAndCorrelationWithoutTheToken() {
         client().get().uri("/api/v1/users/me").header("X-Correlation-ID", CORRELATION_ID)
@@ -53,25 +62,34 @@ class IdentityIntegrationTest extends GatewayIntegrationTest {
         RecordedRequest request = receivedByMs01();
         assertThat(request.header("X-User-Id")).containsExactly(TestJwt.USER_ID);
         assertThat(request.header("X-User-Role")).containsExactly("BRIGADISTA,ESTUDIANTE");
+        assertThat(request.header("X-User-Permission")).containsExactly("ms01:profile:read,ms04:checkin:write");
         assertThat(request.header("X-Correlation-ID")).containsExactly(CORRELATION_ID);
         assertThat(request.header(HttpHeaders.AUTHORIZATION)).isEmpty();
     }
 
+    /**
+     * Aunque el cliente falsifique cabeceras, MS01 recibe solo la identidad del token
+     */
     @Test
     void shouldForwardOnlyTheTokenIdentityWhenTheClientSpoofsHeaders() {
         anonymousClient().get().uri("/api/v1/users/me")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken())
                 .header("X-User-Id", "11111111-1111-4111-8111-111111111111")
                 .header("x-user-role", "ADMIN")
+                .header("x-user-permission", "ms01:role:manage")
                 .header("X-Service-Name", "ms08")
                 .exchange().expectStatus().isOk();
 
         RecordedRequest request = receivedByMs01();
         assertThat(request.header("X-User-Id")).containsExactly(TestJwt.USER_ID);
         assertThat(request.header("X-User-Role")).containsExactly("ESTUDIANTE");
+        assertThat(request.header("X-User-Permission")).containsExactly("ms01:profile:read");
         assertThat(request.header("X-Service-Name")).isEmpty();
     }
 
+    /**
+     * En rutas públicas MS01 no recibe identidad ni credenciales
+     */
     @Test
     void shouldNotForwardIdentityNorCredentialsOnPublicRoutes() {
         // Authorization y X-Service-Key juntas son 400 (RF-GW-08, A2): cada credencial va en su propia solicitud.
@@ -79,6 +97,7 @@ class IdentityIntegrationTest extends GatewayIntegrationTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + TestJwt.validToken())
                 .header("X-User-Id", TestJwt.USER_ID)
                 .header("X-User-Role", "ADMIN")
+                .header("X-User-Permission", "ms01:role:manage")
                 .header("X-Service-Name", "ms01")
                 .exchange().expectStatus().isOk();
         anonymousClient().post().uri("/api/v1/auth/login")
@@ -86,13 +105,16 @@ class IdentityIntegrationTest extends GatewayIntegrationTest {
                 .exchange().expectStatus().isOk();
 
         assertThat(MS01.requests()).hasSize(2).allSatisfy(request -> {
-            for (String header : List.of("X-User-Id", "X-User-Role", "X-Service-Name", "X-Service-Key",
-                    HttpHeaders.AUTHORIZATION)) {
+            for (String header : List.of("X-User-Id", "X-User-Role", "X-User-Permission", "X-Service-Name",
+                    "X-Service-Key", HttpHeaders.AUTHORIZATION)) {
                 assertThat(request.header(header)).as(header).isEmpty();
             }
         });
     }
 
+    /**
+     * El 403 de MS01 para un estudiante llega sin cambios y MS01 recibió su identidad
+     */
     @Test
     void shouldPropagateTheMs01ForbiddenResponseUnchangedForAStudent() {
         String forbidden = "{\"status\":403,\"codigo\":\"PROHIBIDO\",\"mensaje\":\"No cuenta con los permisos "
@@ -107,5 +129,6 @@ class IdentityIntegrationTest extends GatewayIntegrationTest {
                 .expectBody(String.class).isEqualTo(forbidden);
 
         assertThat(receivedByMs01().header("X-User-Role")).containsExactly("ESTUDIANTE");
+        assertThat(receivedByMs01().header("X-User-Permission")).containsExactly("ms01:profile:read");
     }
 }

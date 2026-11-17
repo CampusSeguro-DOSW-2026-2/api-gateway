@@ -37,11 +37,16 @@ class IdentityHeadersFilterTest {
         }
     }
 
+    /**
+     * Crea una petición con identidad, credenciales y cabeceras técnicas falsificadas
+     */
     private static MockServerHttpRequest.BaseBuilder<?> spoofedRequest() {
         return MockServerHttpRequest.get("/api/v1/users/me")
                 .header("x-user-id", "11111111-1111-4111-8111-111111111111")
                 .header("X-USER-ROLE", "ADMIN")
                 .header("X-User-Role", "AUDITOR")
+                .header("x-user-permission", "ms01:role:manage")
+                .header("X-USER-PERMISSION", "ms08:audit:read")
                 .header("x-service-name", "ms08")
                 .header("X-Service-Key", "clave-robada")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer token")
@@ -49,35 +54,52 @@ class IdentityHeadersFilterTest {
                 .header(HttpHeaders.ACCEPT, "application/json");
     }
 
+    /**
+     * Inyecta el usuario, los roles y los permisos del token en su orden
+     */
     @Test
     void shouldInjectIdentityFromTheTokenInTokenOrder() {
         HttpHeaders headers = forwardedHeaders(MockServerHttpRequest.get("/api/v1/users/me"),
-                new AuthenticatedUser(USER_ID, List.of("BRIGADISTA", "ESTUDIANTE")));
+                new AuthenticatedUser(USER_ID, List.of("BRIGADISTA", "ESTUDIANTE"),
+                        List.of("ms04:checkin:write", "ms07:content:read")));
 
         assertThat(headers.get("X-User-Id")).containsExactly(USER_ID);
         assertThat(headers.get("X-User-Role")).containsExactly("BRIGADISTA,ESTUDIANTE");
+        assertThat(headers.get("X-User-Permission")).containsExactly("ms04:checkin:write,ms07:content:read");
     }
 
+    /**
+     * Reemplaza la identidad falsificada por un solo valor canónico del token
+     */
     @Test
     void shouldReplaceSpoofedIdentityWithASingleCanonicalValueFromTheToken() {
-        HttpHeaders headers = forwardedHeaders(spoofedRequest(), new AuthenticatedUser(USER_ID, List.of("ESTUDIANTE")));
+        HttpHeaders headers = forwardedHeaders(spoofedRequest(),
+                new AuthenticatedUser(USER_ID, List.of("ESTUDIANTE"), List.of("ms01:profile:read")));
 
         assertThat(headers.get("X-User-Id")).containsExactly(USER_ID);
         assertThat(headers.get("X-User-Role")).containsExactly("ESTUDIANTE");
+        assertThat(headers.get("X-User-Permission")).containsExactly("ms01:profile:read");
     }
 
+    /**
+     * En rutas protegidas no reenvía credenciales ni nombre de servicio
+     */
     @Test
     void shouldNotForwardCredentialsNorServiceNameOnProtectedRoutes() {
-        HttpHeaders headers = forwardedHeaders(spoofedRequest(), new AuthenticatedUser(USER_ID, List.of("ESTUDIANTE")));
+        HttpHeaders headers = forwardedHeaders(spoofedRequest(),
+                new AuthenticatedUser(USER_ID, List.of("ESTUDIANTE"), List.of("ms01:profile:read")));
 
         assertAbsent(headers, HttpHeaders.AUTHORIZATION, "X-Service-Key", "X-Service-Name");
     }
 
+    /**
+     * En rutas públicas no inyecta ni reenvía ninguna identidad
+     */
     @Test
     void shouldNotInjectNorForwardIdentityOnPublicRoutes() {
         HttpHeaders headers = forwardedHeaders(spoofedRequest(), null);
 
-        assertAbsent(headers, "X-User-Id", "X-User-Role", "X-Service-Name",
+        assertAbsent(headers, "X-User-Id", "X-User-Role", "X-User-Permission", "X-Service-Name",
                 HttpHeaders.AUTHORIZATION, "X-Service-Key");
     }
 

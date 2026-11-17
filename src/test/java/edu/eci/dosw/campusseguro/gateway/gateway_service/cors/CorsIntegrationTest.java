@@ -61,11 +61,15 @@ class CorsIntegrationTest extends GatewayIntegrationTest {
         assertThat(MS01.requests()).isEmpty();
     }
 
+    /**
+     * Un preflight no permitido responde 403 sin Allow-Origin y sin llamar a MS01
+     */
     @ParameterizedTest(name = "{0} {1} {2}")
     @CsvSource(delimiter = '|', value = {
         OTHER_ORIGIN + "   | GET   | authorization",
         ALLOWED_ORIGIN + " | TRACE | authorization",
         ALLOWED_ORIGIN + " | GET   | x-user-role",
+        ALLOWED_ORIGIN + " | GET   | x-user-permission",
         ALLOWED_ORIGIN + " | POST  | x-service-key"
     })
     void shouldRejectPreflightNotAllowedWith403AndWithoutAllowOrigin(String origin, String method, String headers) {

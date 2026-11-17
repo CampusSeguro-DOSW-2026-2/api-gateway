@@ -10,3 +10,4 @@ CORS_ALLOWED_ORIGINS: https://app.campusseguro.test
 management:
   server:
     port: 0
+SESSION_CUTS_INTERVAL_SECONDS: 1

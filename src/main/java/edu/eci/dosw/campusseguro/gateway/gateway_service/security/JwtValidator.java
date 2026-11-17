@@ -7,6 +7,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.error.GatewayError;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.error.GatewayException;
+import edu.eci.dosw.campusseguro.gateway.gateway_service.sessioncuts.SessionCutStore;
 import java.text.ParseException;
 import java.time.Clock;
 import java.time.Duration;
@@ -19,9 +20,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Valida localmente y sin estado el JWT de MS01 (RF-GW-02, RN-GW-06): sin llamadas de red, sin
- * introspección ni revocación. Todo rechazo es {@link GatewayError#UNAUTHORIZED}; el motivo va al
- * log en DEBUG y el token nunca se registra (RN-GW-11).
+ * Valida localmente el JWT de MS01 (RF-GW-02): firma, claims y cortes de sesión, sin llamadas de red en la
+ * petición ni introspección. Los cortes los consulta aparte {@link SessionCutStore} y aquí solo se comparan
+ * en memoria. Todo rechazo es {@link GatewayError#UNAUTHORIZED}; el motivo va al log en DEBUG y el token nunca
+ * se registra (RN-GW-11).
  */
 @Component
 public class JwtValidator {
@@ -31,18 +33,41 @@ public class JwtValidator {
     private final RSASSAVerifier verifier;
     private final JwtProperties properties;
     private final Clock clock;
+    private final SessionCutStore sessionCuts;
 
+    /**
+     * Crea el validador con el reloj del sistema
+     *
+     * @param properties configuración de la validación del JWT
+     * @param sessionCuts cortes de sesión vigentes
+     */
     @Autowired
-    public JwtValidator(JwtProperties properties) {
-        this(properties, Clock.systemUTC());
+    public JwtValidator(JwtProperties properties, SessionCutStore sessionCuts) {
+        this(properties, Clock.systemUTC(), sessionCuts);
     }
 
-    JwtValidator(JwtProperties properties, Clock clock) {
+    /**
+     * Crea el validador con el reloj indicado
+     *
+     * @param properties configuración de la validación del JWT
+     * @param clock reloj con el que se comparan las fechas del token
+     * @param sessionCuts cortes de sesión vigentes
+     */
+    JwtValidator(JwtProperties properties, Clock clock, SessionCutStore sessionCuts) {
         this.verifier = new RSASSAVerifier(RsaPublicKeys.parse(properties.publicKey()));
         this.properties = properties;
         this.clock = clock;
+        this.sessionCuts = sessionCuts;
     }
 
+    /**
+     * Valida un JWT y entrega la identidad que lleva
+     *
+     * @param token JWT recibido en el esquema Bearer
+     * @return el usuario, sus roles y sus permisos
+     * @throws GatewayException {@link GatewayError#UNAUTHORIZED} si el token es inválido, expiró o lo cortó un
+     *         cambio de acceso
+     */
     public AuthenticatedUser validate(String token) {
         SignedJWT jwt = parse(token);
         // El algoritmo se exige antes de verificar la firma: rechaza none, HS256 y cualquier otro.
@@ -55,7 +80,13 @@ public class JwtValidator {
         JWTClaimsSet claims = claimsOf(jwt);
         validateIssuerAndAudience(claims);
         validateTimes(claims);
-        return new AuthenticatedUser(subject(claims), roles(claims));
+        String subject = subject(claims);
+        List<String> roles = roles(claims);
+        List<String> permissions = permissions(claims);
+        if (sessionCuts.isCut(subject, roles, claims.getIssueTime().toInstant())) {
+            throw reject("token anterior a un corte de sesión");
+        }
+        return new AuthenticatedUser(subject, roles, permissions);
     }
 
     private static SignedJWT parse(String token) {
@@ -133,6 +164,24 @@ public class JwtValidator {
             throw reject("roles con formato inválido");
         }
         return roles.stream().map(String.class::cast).toList();
+    }
+
+    /**
+     * Lee los permisos del token y comprueba su formato
+     *
+     * @param claims claims del token
+     * @return los permisos en el orden del token
+     * @throws GatewayException {@link GatewayError#UNAUTHORIZED} si faltan, están vacíos o alguno tiene formato
+     *         inválido
+     */
+    private static List<String> permissions(JWTClaimsSet claims) {
+        if (!(claims.getClaim("permissions") instanceof List<?> permissions) || permissions.isEmpty()) {
+            throw reject("permissions ausente o vacío");
+        }
+        if (!permissions.stream().allMatch(IdentityFormat::isPermission)) {
+            throw reject("permissions con formato inválido");
+        }
+        return permissions.stream().map(String.class::cast).toList();
     }
 
     private static GatewayException reject(String reason) {
