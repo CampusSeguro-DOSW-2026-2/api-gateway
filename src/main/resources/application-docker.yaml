@@ -5,6 +5,7 @@ MS03_URI: http://ms03-alerts-and-emergencies:8083
 MS04_URI: http://ms04-evacuation-and-check-in:8084
 MS05_URI: http://ms05-brigades-and-incidents:8085
 MS06_URI: http://ms06-drills:8086
+MS07_URI: http://ms07-training-and-ai-assistant:8087
 MS08_URI: http://ms08-analytics-and-audit:8088
 # Origen del frontend en el navegador.
 CORS_ALLOWED_ORIGINS: http://localhost:5173
