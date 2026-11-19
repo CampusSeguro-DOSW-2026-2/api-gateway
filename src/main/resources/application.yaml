@@ -102,7 +102,6 @@ gateway:
         - /api/v1/tipos-evento
         - /api/v1/tipos-evento/**
         - /api/v1/tipos-alerta
-        - /api/v1/tipos-alerta/**
     - id: ms07
       uri: ${MS07_URI}
       paths:
@@ -136,6 +135,7 @@ gateway:
       - { method: POST, path: /api/v1/audit/events }
       - { method: POST, path: /api/v1/users/batch }
       - { method: GET, path: /api/v1/users/by-role }
+      - { method: GET, path: /api/v1/tipos-alerta }
 
   # CORS solo en el GW (Estándares §2.1). Métodos y cabeceras son fijos en el código.
   cors:
