@@ -18,19 +18,24 @@ class RoutingIntegrationTest extends GatewayIntegrationTest {
 
     private static final DownstreamStub MS01 = DownstreamStub.start();
 
+    private static final DownstreamStub MS06 = DownstreamStub.start();
+
     @DynamicPropertySource
     static void routes(DynamicPropertyRegistry registry) {
         registry.add("MS01_URI", MS01::baseUrl);
+        registry.add("MS06_URI", MS06::baseUrl);
     }
 
     @AfterAll
     static void stop() {
         MS01.close();
+        MS06.close();
     }
 
     @BeforeEach
     void reset() {
         MS01.reset();
+        MS06.reset();
     }
 
     @Test
@@ -86,6 +91,19 @@ class RoutingIntegrationTest extends GatewayIntegrationTest {
                 "/api/v1/users/status", "/api/v1/roles", "/api/v1/roles/details", "/api/v1/roles",
                 "/api/v1/roles/PROFESOR", "/api/v1/roles/PROFESOR", "/api/v1/roles/PROFESOR/permissions",
                 "/api/v1/permissions");
+    }
+
+    /** El catálogo de tipos de alerta de MS06 se publica para que MS03 lo replique. */
+    @Test
+    void shouldRouteTheAlertTypeCatalogToMs06() {
+        MS06.respond(200, "[{\"code\":\"SISMO\",\"name\":\"Sismo\"}]");
+
+        client().get().uri("/api/v1/tipos-alerta").exchange()
+                .expectStatus().isOk()
+                .expectBody().json("[{\"code\":\"SISMO\",\"name\":\"Sismo\"}]");
+
+        assertThat(MS06.requests()).extracting(RecordedRequest::uri)
+                .containsExactly("/api/v1/tipos-alerta");
     }
 
     /**

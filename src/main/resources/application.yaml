@@ -101,6 +101,8 @@ gateway:
         - /api/v1/eventos/**
         - /api/v1/tipos-evento
         - /api/v1/tipos-evento/**
+        - /api/v1/tipos-alerta
+        - /api/v1/tipos-alerta/**
     - id: ms07
       uri: ${MS07_URI}
       paths:
