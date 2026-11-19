@@ -101,6 +101,11 @@ gateway:
         - /api/v1/eventos/**
         - /api/v1/tipos-evento
         - /api/v1/tipos-evento/**
+    - id: ms07
+      uri: ${MS07_URI}
+      paths:
+        - /api/v1/training/**
+        - /api/v1/tutor/**
     - id: ms08
       uri: ${MS08_URI}
       paths:
@@ -108,6 +113,11 @@ gateway:
         - /api/v1/auditoria/**
         # Auditoría de todos los MS (Estándares §12): ruta interna, ya declarada en access.internal-routes.
         - /api/v1/audit/events
+  # Tiempo de respuesta propio de un prefijo; el resto usa downstream-timeout. El tutor (MS07) consulta un modelo de
+  # lenguaje: MS07 corta su llamada antes (8 s) para responder siempre antes que el GW.
+  path-timeouts:
+    - path: /api/v1/tutor/**
+      timeout: ${GATEWAY_TUTOR_TIMEOUT_MS:10000}ms
 
   # Políticas de acceso por método + ruta exacta (GW-C §3). Lo que no está aquí es protegido (RN-GW-08).
   # Las públicas deben coincidir con los Estándares §2; agregar una exige PR en los Estándares.

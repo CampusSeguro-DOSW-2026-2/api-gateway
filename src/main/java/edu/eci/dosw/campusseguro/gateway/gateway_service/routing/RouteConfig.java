@@ -16,7 +16,8 @@ import org.springframework.web.server.ServerWebExchange;
 /**
  * Construye las rutas de Spring Cloud Gateway a partir de la tabla de rutas. Cada patrón es una
  * ruta propia ordenada por especificidad. Reenvía método, ruta completa, query params y cuerpo sin
- * cambios (RN-GW-01): sin reescrituras, sin reintentos y sin restringir métodos (RN-GW-04/05).
+ * cambios (RN-GW-01): sin reescrituras, sin reintentos y sin restringir métodos (RN-GW-04/05). El tiempo de
+ * respuesta es el general salvo en los prefijos de {@code gateway.path-timeouts}.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(GatewayRoutesProperties.class)
@@ -42,7 +43,7 @@ public class RouteConfig {
                         .path(path)
                         .metadata(UPSTREAM_ATTR, route.id())
                         .metadata(CONNECT_TIMEOUT_ATTR, timeoutMs)
-                        .metadata(RESPONSE_TIMEOUT_ATTR, (long) timeoutMs)
+                        .metadata(RESPONSE_TIMEOUT_ATTR, properties.responseTimeoutOf(path).toMillis())
                         .uri(route.uri()));
             }
         }
