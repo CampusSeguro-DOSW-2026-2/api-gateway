@@ -16,21 +16,29 @@ import org.springframework.test.context.DynamicPropertySource;
 /** CA-GW-01-01, CA-GW-01-02, RN-GW-05 e INT-GW-01 (parte de enrutamiento). */
 class RoutingIntegrationTest extends GatewayIntegrationTest {
 
+    private static final String MS03_KEY = "clave-de-servicio-ms03-de-al-menos-32-caracteres";
+
     private static final DownstreamStub MS01 = DownstreamStub.start();
+
+    private static final DownstreamStub MS06 = DownstreamStub.start();
 
     @DynamicPropertySource
     static void routes(DynamicPropertyRegistry registry) {
         registry.add("MS01_URI", MS01::baseUrl);
+        registry.add("MS06_URI", MS06::baseUrl);
+        registry.add("GW_SERVICE_KEY_MS03", () -> MS03_KEY);
     }
 
     @AfterAll
     static void stop() {
         MS01.close();
+        MS06.close();
     }
 
     @BeforeEach
     void reset() {
         MS01.reset();
+        MS06.reset();
     }
 
     @Test
@@ -86,6 +94,27 @@ class RoutingIntegrationTest extends GatewayIntegrationTest {
                 "/api/v1/users/status", "/api/v1/roles", "/api/v1/roles/details", "/api/v1/roles",
                 "/api/v1/roles/PROFESOR", "/api/v1/roles/PROFESOR", "/api/v1/roles/PROFESOR/permissions",
                 "/api/v1/permissions");
+    }
+
+    /** El catálogo de tipos de alerta de MS06 se publica para que MS03 lo replique. */
+    @Test
+    void shouldRouteTheAlertTypeCatalogToMs06AsAnInternalCall() {
+        MS06.respond(200, "[{\"code\":\"SISMO\",\"name\":\"Sismo\"}]");
+
+        anonymousClient().get().uri("/api/v1/tipos-alerta").exchange()
+                .expectStatus().isUnauthorized();
+        assertThat(MS06.requests()).isEmpty();
+
+        anonymousClient().get().uri("/api/v1/tipos-alerta")
+                .header("X-Service-Key", MS03_KEY)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().json("[{\"code\":\"SISMO\",\"name\":\"Sismo\"}]");
+
+        assertThat(MS06.requests()).singleElement().satisfies(request -> {
+            assertThat(request.uri()).isEqualTo("/api/v1/tipos-alerta");
+            assertThat(request.header("X-Service-Name")).containsExactly("ms03");
+        });
     }
 
     /**
