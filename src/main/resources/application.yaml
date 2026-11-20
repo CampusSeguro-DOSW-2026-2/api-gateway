@@ -110,10 +110,9 @@ gateway:
     - id: ms08
       uri: ${MS08_URI}
       paths:
-        - /api/v1/analitica/**
-        - /api/v1/auditoria/**
-        # Auditoría de todos los MS (Estándares §12): ruta interna, ya declarada en access.internal-routes.
-        - /api/v1/audit/events
+        # Auditoría de todos los MS (Estándares §12): POST /api/v1/audit/events es ruta interna (access.internal-routes).
+        - /api/v1/audit/**
+        - /api/v1/analytics/**
   # Tiempo de respuesta propio de un prefijo; el resto usa downstream-timeout. El tutor (MS07) consulta un modelo de
   # lenguaje: MS07 corta su llamada antes (8 s) para responder siempre antes que el GW.
   path-timeouts:

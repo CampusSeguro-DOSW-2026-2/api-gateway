@@ -36,6 +36,6 @@ class GatewayServiceApplicationTests extends GatewayIntegrationTest {
                 "ms06:/api/v1/tipos-evento", "ms06:/api/v1/tipos-evento/**",
                 "ms06:/api/v1/tipos-alerta",
                 "ms07:/api/v1/training/**", "ms07:/api/v1/tutor/**",
-                "ms08:/api/v1/analitica/**", "ms08:/api/v1/auditoria/**", "ms08:/api/v1/audit/events");
+                "ms08:/api/v1/audit/**", "ms08:/api/v1/analytics/**");
     }
 }
