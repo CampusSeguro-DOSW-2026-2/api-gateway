@@ -41,6 +41,11 @@ class AccessPolicyResolverTest {
         "POST,   /api/v1/auth/login,           PUBLICA",
         "POST,   /api/v1/auth/password/forgot, PUBLICA",
         "POST,   /api/v1/auth/password/reset,  PUBLICA",
+        "GET,    /api/v1/public/spaces,        PUBLICA",
+        "GET,    /api/v1/public/exits,         PUBLICA",
+        "GET,    /api/v1/public/safe-zones,    PUBLICA",
+        "POST,   /api/v1/public/spaces,        PROTEGIDA",
+        "GET,    /api/v1/public/images,        PROTEGIDA",
         "POST,   /api/v1/audit/events,         INTERNA",
         "POST,   /api/v1/users/batch,          INTERNA",
         "GET,    /api/v1/users/by-role,        INTERNA",
@@ -62,8 +67,8 @@ class AccessPolicyResolverTest {
     }
 
     @Test
-    void shouldDeclareOnlyTheFivePublicRoutesOfTheStandards() {
-        assertThat(loadApplicationYaml().publicRoutes()).hasSize(7);
+    void shouldDeclareOnlyThePublicRoutesOfTheStandards() {
+        assertThat(loadApplicationYaml().publicRoutes()).hasSize(10);
     }
 
     @Configuration(proxyBeanMethods = false)
