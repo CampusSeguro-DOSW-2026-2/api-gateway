@@ -130,6 +130,10 @@ gateway:
       - { method: POST, path: /api/v1/auth/login }
       - { method: POST, path: /api/v1/auth/password/forgot }
       - { method: POST, path: /api/v1/auth/password/reset }
+      # Consulta por QR de MS02, sin sesión (solo lectura, sin datos personales).
+      - { method: GET, path: /api/v1/public/spaces }
+      - { method: GET, path: /api/v1/public/exits }
+      - { method: GET, path: /api/v1/public/safe-zones }
     internal-routes:
       - { method: POST, path: /api/v1/audit/events }
       - { method: POST, path: /api/v1/users/batch }
