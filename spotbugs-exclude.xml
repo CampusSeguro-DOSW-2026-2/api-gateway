@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs exclusions of the API Gateway. Only EI_EXPOSE_REP and EI_EXPOSE_REP2 are excluded, and only in the classes
+  where sharing the reference is the intended design. Any other class that exposes a mutable object is still reported.
+-->
+<FindBugsFilter xmlns="https://github.com/spotbugs/filter/3.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
+
+    <!-- Beans injected by Spring: they are shared singletons by design and cannot be copied -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+        <Or>
+            <And><Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.error.DownstreamErrorValidationFilter"/><Field name="writer"/></And>
+            <And><Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.error.DownstreamErrorValidator"/><Field name="jsonMapper"/></And>
+            <And><Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.error.ErrorResponseWriter"/><Field name="jsonMapper"/></And>
+            <And><Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.error.GatewayErrorWebExceptionHandler"/><Or><Field name="resolvers"/><Field name="writer"/></Or></And>
+            <And><Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.sessioncuts.SessionCutsPoller"/><Field name="store"/></And>
+        </Or>
+    </Match>
+
+    <!-- Contract DTOs: pure records without constructors, built and serialized within the same request -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+        <Or>
+            <Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.error.ErrorResponse"/>
+            <Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.sessioncuts.SessionCutsResponse"/>
+        </Or>
+    </Match>
+
+    <!-- @ConfigurationProperties records: bound once at startup and validated with Bean Validation, which needs the
+         received values (including null) to report its own messages -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+        <Or>
+            <Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.config.GatewayRoutesProperties"/>
+            <Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.config.GatewayRoutesProperties$Route"/>
+            <Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.cors.CorsProperties"/>
+            <Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.security.AccessPolicyProperties"/>
+            <Class name="edu.eci.dosw.campusseguro.gateway.gateway_service.security.ServiceKeyProperties"/>
+        </Or>
+    </Match>
+</FindBugsFilter>

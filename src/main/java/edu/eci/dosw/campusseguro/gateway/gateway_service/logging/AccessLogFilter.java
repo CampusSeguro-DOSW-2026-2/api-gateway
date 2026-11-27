@@ -68,8 +68,8 @@ public class AccessLogFilter implements WebFilter {
                     .addKeyValue("upstream", upstreamOf(exchange))
                     .addKeyValue("origen", originOf(exchange))
                     .log("Solicitud procesada");
-        } catch (RuntimeException e) {
-            // Una falla del log nunca altera ni bloquea la respuesta (RF-GW-07, A2).
+        } catch (RuntimeException ignored) {
+            // A failure of the log never changes nor blocks the response (RF-GW-07, A2)
         }
     }
 
