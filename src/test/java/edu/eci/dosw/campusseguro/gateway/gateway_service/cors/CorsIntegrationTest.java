@@ -61,11 +61,15 @@ class CorsIntegrationTest extends GatewayIntegrationTest {
         assertThat(MS01.requests()).isEmpty();
     }
 
+    /**
+     * Un preflight no permitido responde 403 sin Allow-Origin y sin llamar a MS01
+     */
     @ParameterizedTest(name = "{0} {1} {2}")
     @CsvSource(delimiter = '|', value = {
         OTHER_ORIGIN + "   | GET   | authorization",
         ALLOWED_ORIGIN + " | TRACE | authorization",
         ALLOWED_ORIGIN + " | GET   | x-user-role",
+        ALLOWED_ORIGIN + " | GET   | x-user-permission",
         ALLOWED_ORIGIN + " | POST  | x-service-key"
     })
     void shouldRejectPreflightNotAllowedWith403AndWithoutAllowOrigin(String origin, String method, String headers) {
@@ -95,6 +99,21 @@ class CorsIntegrationTest extends GatewayIntegrationTest {
                 .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, ALLOWED_ORIGIN)
                 .expectHeader().value(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
                         exposed -> assertThat(exposed).contains("X-Correlation-ID"));
+    }
+
+    @Test
+    void shouldKeepCorsHeadersWhenTheMsErrorIsReplacedWith502() {
+        MS01.respond(403, "Invalid CORS request").header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+
+        String body = client().get().uri("/api/v1/users/me").header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                .exchange()
+                .expectStatus().isEqualTo(502)
+                .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, ALLOWED_ORIGIN)
+                .expectHeader().value(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        exposed -> assertThat(exposed).contains("X-Correlation-ID"))
+                .expectBody(String.class).returnResult().getResponseBody();
+
+        assertGatewayError(body, 502, "SERVICIO_NO_DISPONIBLE", "Servicio temporalmente no disponible.");
     }
 
     @Test

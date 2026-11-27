@@ -37,6 +37,8 @@ class CloudMtlsIntegrationTest extends GatewayIntegrationTest {
         registry.add("GW_CLIENT_KEYSTORE", () -> "classpath:mtls/gw-client.p12");
         registry.add("GW_CLIENT_KEYSTORE_PASSWORD", CloudMtlsIntegrationTest::clientStorePassword);
         registry.add("GW_TRUSTED_CA", () -> "classpath:mtls/ca.pem");
+        // Tabla de rutas propia: sin los tiempos por prefijo de application.yaml, que apuntan a rutas que aquí no están
+        registry.add("gateway.path-timeouts", () -> "");
         registry.add("gateway.routes[0].id", () -> "ms01");
         registry.add("gateway.routes[0].uri", MS01::baseUrl);
         registry.add("gateway.routes[0].paths[0]", () -> "/api/v1/auth/**");

@@ -6,11 +6,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.correlation.CorrelationIdProvider;
 import edu.eci.dosw.campusseguro.gateway.gateway_service.correlation.ExchangeAttributeCorrelationIdProvider;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -83,6 +85,24 @@ class DownstreamErrorValidationFilterTest {
         assertThat(exchange.getResponse().getHeaders().get("X-Interno")).isNull();
         assertGatewayError(responseBody(), 502, "SERVICIO_NO_DISPONIBLE", "Servicio temporalmente no disponible.");
         assertThat(output).contains("campo faltante: codigo").doesNotContain("Method Not Allowed");
+    }
+
+    @Test
+    void shouldKeepGatewayCorsHeadersWhenReplacingNonConformingError() {
+        // Lo que dejó el paso 3 (CORS del GW) antes de llamar al MS.
+        exchange.getResponse().getHeaders().setAccessControlAllowOrigin("https://app.campusseguro.test");
+        exchange.getResponse().getHeaders().setAccessControlExposeHeaders(List.of("X-Correlation-ID"));
+        exchange.getResponse().getHeaders().setVary(List.of(HttpHeaders.ORIGIN));
+
+        msResponds(HttpStatus.FORBIDDEN, "Invalid CORS request");
+
+        HttpHeaders headers = exchange.getResponse().getHeaders();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(headers.getAccessControlAllowOrigin()).isEqualTo("https://app.campusseguro.test");
+        assertThat(headers.getAccessControlExposeHeaders()).containsExactly("X-Correlation-ID");
+        assertThat(headers.getVary()).containsExactly(HttpHeaders.ORIGIN);
+        assertThat(headers.get("X-Interno")).isNull();
+        assertGatewayError(responseBody(), 502, "SERVICIO_NO_DISPONIBLE", "Servicio temporalmente no disponible.");
     }
 
     @Test

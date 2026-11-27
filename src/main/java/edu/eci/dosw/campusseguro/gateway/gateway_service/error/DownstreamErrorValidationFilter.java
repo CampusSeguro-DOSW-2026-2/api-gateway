@@ -12,6 +12,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.http.server.reactive.ServerHttpResponseDecorator;
@@ -22,7 +23,9 @@ import reactor.core.publisher.Mono;
 /**
  * Paso 7 del pipeline (RF-GW-05): las respuestas 2xx/3xx del MS pasan sin leer el cuerpo; un error
  * 4xx/5xx se propaga sin cambios solo si cumple {@link DownstreamErrorValidator}. Si no, el GW
- * responde {@link GatewayError#SERVICE_UNAVAILABLE} y registra el motivo, nunca el cuerpo.
+ * responde {@link GatewayError#SERVICE_UNAVAILABLE} y registra el motivo, nunca el cuerpo. Ese 502
+ * descarta las cabeceras del MS pero conserva las CORS que puso el GW (paso 3): sin ellas el navegador
+ * no deja leer el error.
  */
 @Component
 public class DownstreamErrorValidationFilter implements GlobalFilter, Ordered {
@@ -58,10 +61,13 @@ public class DownstreamErrorValidationFilter implements GlobalFilter, Ordered {
     private final class ValidatingResponse extends ServerHttpResponseDecorator {
 
         private final ServerWebExchange exchange;
+        /** Cabeceras CORS del GW, tomadas antes de llamar al MS (el paso 3 ya corrió). */
+        private final HttpHeaders gatewayCorsHeaders;
 
         ValidatingResponse(ServerWebExchange exchange) {
             super(exchange.getResponse());
             this.exchange = exchange;
+            this.gatewayCorsHeaders = corsHeadersOf(exchange.getResponse().getHeaders());
         }
 
         @Override
@@ -86,8 +92,20 @@ public class DownstreamErrorValidationFilter implements GlobalFilter, Ordered {
             log.warn("Error downstream no conforme: {} status={} upstream={} correlation_id={}",
                     violation, status.value(), RouteConfig.upstreamOf(exchange), correlationIdProvider.correlationId(exchange));
             getDelegate().getHeaders().clear();
+            getDelegate().getHeaders().putAll(gatewayCorsHeaders);
             return writer.write(exchange, getDelegate(), GatewayError.SERVICE_UNAVAILABLE);
         }
+    }
+
+    private static HttpHeaders corsHeadersOf(HttpHeaders headers) {
+        HttpHeaders cors = new HttpHeaders();
+        headers.forEach((name, values) -> {
+            if (name.regionMatches(true, 0, "Access-Control-", 0, "Access-Control-".length())
+                    || HttpHeaders.VARY.equalsIgnoreCase(name)) {
+                cors.addAll(name, values);
+            }
+        });
+        return cors;
     }
 
     private static byte[] toBytes(DataBuffer buffer) {

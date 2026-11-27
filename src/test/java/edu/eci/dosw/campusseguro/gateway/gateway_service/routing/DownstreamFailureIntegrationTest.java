@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-/** CA-GW-01-03, CA-GW-01-04, RN-GW-04, INT-GW-09 e INT-GW-10. */
+/** CA-GW-01-03, CA-GW-01-04, RN-GW-04, INT-GW-09 e INT-GW-10, y el tiempo propio de un prefijo (path-timeouts). */
 class DownstreamFailureIntegrationTest extends GatewayIntegrationTest {
 
     private static final DownstreamStub SLOW_MS = DownstreamStub.start().delay(Duration.ofSeconds(2));
@@ -24,6 +24,9 @@ class DownstreamFailureIntegrationTest extends GatewayIntegrationTest {
         registry.add("gateway.routes[0].id", () -> "slow");
         registry.add("gateway.routes[0].uri", SLOW_MS::baseUrl);
         registry.add("gateway.routes[0].paths[0]", () -> "/api/v1/slow/**");
+        registry.add("gateway.routes[0].paths[1]", () -> "/api/v1/slow-tutor/**");
+        registry.add("gateway.path-timeouts[0].path", () -> "/api/v1/slow-tutor/**");
+        registry.add("gateway.path-timeouts[0].timeout", () -> "5000ms");
         registry.add("gateway.routes[1].id", () -> "closed");
         registry.add("gateway.routes[1].uri", () -> "http://localhost:" + closedPort());
         registry.add("gateway.routes[1].paths[0]", () -> "/api/v1/closed/**");
@@ -46,6 +49,24 @@ class DownstreamFailureIntegrationTest extends GatewayIntegrationTest {
 
         assertGatewayError(body, 504, "TIEMPO_AGOTADO", "El servicio de destino no respondió a tiempo.");
         assertThat(SLOW_MS.requests()).hasSize(1);
+    }
+
+    @Test
+    void shouldWaitForTheSlowDestinationWhenItsPrefixHasItsOwnTimeout() {
+        SLOW_MS.reset();
+        SLOW_MS.delay(Duration.ofSeconds(2));
+        try {
+            client().mutate().responseTimeout(Duration.ofSeconds(10)).build()
+                    .post().uri("/api/v1/slow-tutor/questions")
+                    .exchange()
+                    .expectStatus().isOk();
+
+            assertThat(SLOW_MS.requests()).hasSize(1);
+        } finally {
+            // Los demás casos cuentan sus propias solicitudes al mismo doble
+            SLOW_MS.reset();
+            SLOW_MS.delay(Duration.ofSeconds(2));
+        }
     }
 
     @Test

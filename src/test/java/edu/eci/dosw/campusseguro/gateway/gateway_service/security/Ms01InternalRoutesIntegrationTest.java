@@ -13,12 +13,13 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Rutas internas de MS01 (RF-MS01-09; EST §5: MS03 → MS01 y MS05 → MS01) con las políticas reales de
+ * Rutas internas de MS01 (RF-MS01-09; EST §5: MS03 → MS01, MS04 → MS01 y MS05 → MS01) con las políticas reales de
  * application.yaml: solo se llaman con clave de servicio y MS01 recibe el X-Service-Name derivado de ella.
  */
 class Ms01InternalRoutesIntegrationTest extends GatewayIntegrationTest {
 
     private static final String MS03_KEY = "clave-de-servicio-ms03-de-al-menos-32-caracteres";
+    private static final String MS04_KEY = "clave-de-servicio-ms04-de-al-menos-32-caracteres";
     private static final String MS05_KEY = "clave-de-servicio-ms05-de-al-menos-32-caracteres";
     private static final String BATCH_BODY = "{\"ids\":[\"3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42\"]}";
 
@@ -28,6 +29,7 @@ class Ms01InternalRoutesIntegrationTest extends GatewayIntegrationTest {
     static void routesAndKeys(DynamicPropertyRegistry registry) {
         registry.add("MS01_URI", MS01::baseUrl);
         registry.add("GW_SERVICE_KEY_MS03", () -> MS03_KEY);
+        registry.add("GW_SERVICE_KEY_MS04", () -> MS04_KEY);
         registry.add("GW_SERVICE_KEY_MS05", () -> MS05_KEY);
     }
 
@@ -41,6 +43,9 @@ class Ms01InternalRoutesIntegrationTest extends GatewayIntegrationTest {
         MS01.reset();
     }
 
+    /**
+     * El lote llega con el nombre del servicio y sin la clave ni identidad de usuario
+     */
     @Test
     void shouldForwardTheBatchWithTheServiceNameAndWithoutTheKeyOrAUserIdentity() {
         anonymousClient().post().uri("/api/v1/users/batch")
@@ -57,6 +62,48 @@ class Ms01InternalRoutesIntegrationTest extends GatewayIntegrationTest {
             assertThat(request.header("X-Service-Key")).isEmpty();
             assertThat(request.header("X-User-Id")).isEmpty();
             assertThat(request.header("X-User-Role")).isEmpty();
+            assertThat(request.header("X-User-Permission")).isEmpty();
+        });
+    }
+
+    /**
+     * El lote de MS04 llega con el nombre del servicio y sin la clave ni identidad de usuario
+     */
+    @Test
+    void shouldForwardTheBatchOfMs04WithTheServiceNameAndWithoutTheKeyOrAUserIdentity() {
+        anonymousClient().post().uri("/api/v1/users/batch")
+                .header("X-Service-Key", MS04_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(BATCH_BODY)
+                .exchange()
+                .expectStatus().isOk();
+
+        assertThat(MS01.requests()).singleElement().satisfies(request -> {
+            assertThat(request.method()).isEqualTo("POST");
+            assertThat(request.body()).isEqualTo(BATCH_BODY);
+            assertThat(request.header("X-Service-Name")).containsExactly("ms04");
+            assertThat(request.header("X-Service-Key")).isEmpty();
+            assertThat(request.header("X-User-Id")).isEmpty();
+            assertThat(request.header("X-User-Role")).isEmpty();
+            assertThat(request.header("X-User-Permission")).isEmpty();
+        });
+    }
+
+    /**
+     * Los usuarios por rol de MS04 llegan con los query params sin cambios y con el nombre del servicio
+     */
+    @Test
+    void shouldForwardByRoleOfMs04WithTheQueryParamsUnchanged() {
+        anonymousClient().get()
+                .uri("/api/v1/users/by-role?rol=ESTUDIANTE&page=0&size=100")
+                .header("X-Service-Key", MS04_KEY)
+                .exchange()
+                .expectStatus().isOk();
+
+        assertThat(MS01.requests()).singleElement().satisfies(request -> {
+            assertThat(request.uri()).isEqualTo("/api/v1/users/by-role?rol=ESTUDIANTE&page=0&size=100");
+            assertThat(request.header("X-Service-Name")).containsExactly("ms04");
+            assertThat(request.header("X-Service-Key")).isEmpty();
         });
     }
 

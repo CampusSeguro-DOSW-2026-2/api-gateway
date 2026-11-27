@@ -54,6 +54,8 @@ gateway:
         - /api/v1/users
         - /api/v1/users/**
         - /api/v1/roles
+        - /api/v1/roles/**
+        - /api/v1/permissions
     - id: ms02
       uri: ${MS02_URI}
       paths:
@@ -73,6 +75,8 @@ gateway:
         - /api/v1/exits/**
         - /api/v1/stairs/**
         - /api/v1/public/**
+        - /api/v1/images
+        - /api/v1/images/**
     - id: ms03
       uri: ${MS03_URI}
       paths:
@@ -88,18 +92,32 @@ gateway:
         - /api/v1/brigadistas/**
         - /api/v1/incidentes/**
         - /api/v1/bei/**
+        - /api/v1/asignaciones/**
+        - /api/v1/responsabilidades/**
     - id: ms06
       uri: ${MS06_URI}
       paths:
         - /api/v1/eventos
         - /api/v1/eventos/**
+        - /api/v1/tipos-evento
+        - /api/v1/tipos-evento/**
+        - /api/v1/tipos-alerta
+    - id: ms07
+      uri: ${MS07_URI}
+      paths:
+        - /api/v1/training/**
+        - /api/v1/tutor/**
     - id: ms08
       uri: ${MS08_URI}
       paths:
-        - /api/v1/analitica/**
-        - /api/v1/auditoria/**
-        # Auditoría de todos los MS (Estándares §12): ruta interna, ya declarada en access.internal-routes.
-        - /api/v1/audit/events
+        # Auditoría de todos los MS (Estándares §12): POST /api/v1/audit/events es ruta interna (access.internal-routes).
+        - /api/v1/audit/**
+        - /api/v1/analytics/**
+  # Tiempo de respuesta propio de un prefijo; el resto usa downstream-timeout. El tutor (MS07) consulta un modelo de
+  # lenguaje: MS07 corta su llamada antes (8 s) para responder siempre antes que el GW.
+  path-timeouts:
+    - path: /api/v1/tutor/**
+      timeout: ${GATEWAY_TUTOR_TIMEOUT_MS:10000}ms
 
   # Políticas de acceso por método + ruta exacta (GW-C §3). Lo que no está aquí es protegido (RN-GW-08).
   # Las públicas deben coincidir con los Estándares §2; agregar una exige PR en los Estándares.
@@ -107,13 +125,20 @@ gateway:
     public-routes:
       - { method: GET, path: /actuator/health }
       - { method: POST, path: /api/v1/auth/register }
+      - { method: POST, path: /api/v1/auth/register/verify }
+      - { method: POST, path: /api/v1/auth/register/resend }
       - { method: POST, path: /api/v1/auth/login }
       - { method: POST, path: /api/v1/auth/password/forgot }
       - { method: POST, path: /api/v1/auth/password/reset }
+      # Consulta por QR de MS02, sin sesión (solo lectura, sin datos personales).
+      - { method: GET, path: /api/v1/public/spaces }
+      - { method: GET, path: /api/v1/public/exits }
+      - { method: GET, path: /api/v1/public/safe-zones }
     internal-routes:
       - { method: POST, path: /api/v1/audit/events }
       - { method: POST, path: /api/v1/users/batch }
       - { method: GET, path: /api/v1/users/by-role }
+      - { method: GET, path: /api/v1/tipos-alerta }
 
   # CORS solo en el GW (Estándares §2.1). Métodos y cabeceras son fijos en el código.
   cors:
@@ -131,6 +156,13 @@ gateway:
     ms06: ${GW_SERVICE_KEY_MS06:}
     ms07: ${GW_SERVICE_KEY_MS07:}
     ms08: ${GW_SERVICE_KEY_MS08:}
+
+  # Cortes de sesión que publica MS01 (Estándares §3, RF-MS01-11): ruta interna que el GW consulta él mismo, sin
+  # publicarla. Por defecto, la dirección de MS01 más la ruta; con mTLS en la nube usa la misma conexión de las rutas.
+  session-cuts:
+    url: ${SESSION_CUTS_URL:${MS01_URI}/api/v1/internal/session-cuts}
+    interval: ${SESSION_CUTS_INTERVAL_SECONDS:4}s
+    timeout: ${SESSION_CUTS_TIMEOUT_SECONDS:3}s
 
   # Validación local del JWT emitido por MS01 (Estándares §3).
   jwt:

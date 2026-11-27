@@ -88,6 +88,48 @@ class GatewayRoutesPropertiesTest {
     }
 
     @Test
+    void shouldUseThePathTimeoutOnlyForItsPrefix() {
+        runner.withPropertyValues(
+                        "gateway.path-timeouts[0].path=/api/v1/users",
+                        "gateway.path-timeouts[0].timeout=10000ms")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    GatewayRoutesProperties properties = context.getBean(GatewayRoutesProperties.class);
+                    assertThat(properties.responseTimeoutOf("/api/v1/users").toMillis()).isEqualTo(10000);
+                    assertThat(properties.responseTimeoutOf("/api/v1/auth/**").toMillis()).isEqualTo(3000);
+                });
+    }
+
+    @Test
+    void shouldUseTheGeneralTimeoutWithoutPathTimeouts() {
+        runner.run(context -> assertThat(context.getBean(GatewayRoutesProperties.class)
+                .responseTimeoutOf("/api/v1/users").toMillis()).isEqualTo(3000));
+    }
+
+    @Test
+    void shouldFailWhenPathTimeoutPrefixIsNotInTheRouteTable() {
+        assertStartupFailsWith("todo prefijo de path-timeouts debe estar en la tabla de rutas",
+                "gateway.path-timeouts[0].path=/api/v1/tutor/**",
+                "gateway.path-timeouts[0].timeout=10000ms");
+    }
+
+    @Test
+    void shouldFailWhenPathTimeoutPrefixIsDuplicated() {
+        assertStartupFailsWith("todo prefijo de path-timeouts debe estar en la tabla de rutas",
+                "gateway.path-timeouts[0].path=/api/v1/users",
+                "gateway.path-timeouts[0].timeout=10000ms",
+                "gateway.path-timeouts[1].path=/api/v1/users",
+                "gateway.path-timeouts[1].timeout=5000ms");
+    }
+
+    @Test
+    void shouldFailWhenPathTimeoutIsNotPositive() {
+        assertStartupFailsWith("todo tiempo de path-timeouts debe ser mayor que 0",
+                "gateway.path-timeouts[0].path=/api/v1/users",
+                "gateway.path-timeouts[0].timeout=0ms");
+    }
+
+    @Test
     void shouldFailWhenRouteTableIsEmpty() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(ValidationAutoConfiguration.class))

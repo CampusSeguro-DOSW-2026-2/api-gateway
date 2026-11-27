@@ -9,6 +9,7 @@ import edu.eci.dosw.campusseguro.gateway.gateway_service.support.GatewayIntegrat
 import edu.eci.dosw.campusseguro.gateway.gateway_service.support.TestJwt;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,9 @@ class JwtIntegrationTest extends GatewayIntegrationTest {
         MS01.reset();
     }
 
+    /**
+     * Tokens inválidos con el motivo del rechazo
+     */
     static Stream<Arguments> invalidTokens() {
         Instant now = Instant.now();
         String valid = TestJwt.validToken();
@@ -52,7 +56,13 @@ class JwtIntegrationTest extends GatewayIntegrationTest {
                 Arguments.of("iss incorrecto", TestJwt.sign(TestJwt.validClaims(now).issuer("otro").build())),
                 Arguments.of("aud incorrecto", TestJwt.sign(TestJwt.validClaims(now).audience("otra").build())),
                 Arguments.of("vigencia mayor", TestJwt.sign(TestJwt.validClaims(now)
-                        .expirationTime(Date.from(now.plusSeconds(7200))).build())));
+                        .expirationTime(Date.from(now.plusSeconds(7200))).build())),
+                Arguments.of("sin permissions", TestJwt.sign(TestJwt.validClaims(now)
+                        .claim("permissions", null).build())),
+                Arguments.of("permissions vacío", TestJwt.sign(TestJwt.validClaims(now)
+                        .claim("permissions", List.of()).build())),
+                Arguments.of("permiso con formato inválido", TestJwt.sign(TestJwt.validClaims(now)
+                        .claim("permissions", List.of("ms01:profile:read", "MS01:Profile")).build())));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -77,8 +87,8 @@ class JwtIntegrationTest extends GatewayIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/password/forgot",
-        "/api/v1/auth/password/reset"})
+    @ValueSource(strings = {"/api/v1/auth/register", "/api/v1/auth/register/verify", "/api/v1/auth/register/resend",
+        "/api/v1/auth/login", "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset"})
     void shouldForwardThePublicMs01RoutesWithoutJwt(String path) {
         anonymousClient().post().uri(path).exchange().expectStatus().isOk();
 

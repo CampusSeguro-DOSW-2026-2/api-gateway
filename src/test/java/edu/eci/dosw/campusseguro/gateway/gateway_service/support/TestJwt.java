@@ -24,6 +24,7 @@ public final class TestJwt {
     public static final String AUDIENCE = "campusseguro";
     public static final String USER_ID = "3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42";
     public static final List<String> ROLES = List.of("BRIGADISTA", "ESTUDIANTE");
+    public static final List<String> PERMISSIONS = List.of("ms01:profile:read", "ms04:checkin:write");
 
     private static final KeyPair KEYS = newKeyPair(2048);
 
@@ -57,6 +58,7 @@ public final class TestJwt {
                 .audience(AUDIENCE)
                 .subject(USER_ID)
                 .claim("roles", ROLES)
+                .claim("permissions", PERMISSIONS)
                 .claim("email", "maria.perez@escuelaing.edu.co")
                 .jwtID(UUID.randomUUID().toString())
                 .issueTime(Date.from(issuedAt))

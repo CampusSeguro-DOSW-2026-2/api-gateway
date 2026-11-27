@@ -36,9 +36,16 @@ class AccessPolicyResolverTest {
     @CsvSource({
         "GET,    /actuator/health,             PUBLICA",
         "POST,   /api/v1/auth/register,        PUBLICA",
+        "POST,   /api/v1/auth/register/verify, PUBLICA",
+        "POST,   /api/v1/auth/register/resend, PUBLICA",
         "POST,   /api/v1/auth/login,           PUBLICA",
         "POST,   /api/v1/auth/password/forgot, PUBLICA",
         "POST,   /api/v1/auth/password/reset,  PUBLICA",
+        "GET,    /api/v1/public/spaces,        PUBLICA",
+        "GET,    /api/v1/public/exits,         PUBLICA",
+        "GET,    /api/v1/public/safe-zones,    PUBLICA",
+        "POST,   /api/v1/public/spaces,        PROTEGIDA",
+        "GET,    /api/v1/public/images,        PROTEGIDA",
         "POST,   /api/v1/audit/events,         INTERNA",
         "POST,   /api/v1/users/batch,          INTERNA",
         "GET,    /api/v1/users/by-role,        INTERNA",
@@ -46,6 +53,8 @@ class AccessPolicyResolverTest {
         "POST,   /api/v1/users/by-role,        PROTEGIDA",
         "GET,    /api/v1/users/{id},           PROTEGIDA",
         "GET,    /api/v1/auth/register,        PROTEGIDA",
+        "GET,    /api/v1/auth/register/verify, PROTEGIDA",
+        "POST,   /api/v1/auth/register/otra,   PROTEGIDA",
         "GET,    /api/v1/auth/login,           PROTEGIDA",
         "POST,   /api/v1/auth/logout,          PROTEGIDA",
         "GET,    /api/v1/users/me,             PROTEGIDA",
@@ -58,8 +67,8 @@ class AccessPolicyResolverTest {
     }
 
     @Test
-    void shouldDeclareOnlyTheFivePublicRoutesOfTheStandards() {
-        assertThat(loadApplicationYaml().publicRoutes()).hasSize(5);
+    void shouldDeclareOnlyThePublicRoutesOfTheStandards() {
+        assertThat(loadApplicationYaml().publicRoutes()).hasSize(10);
     }
 
     @Configuration(proxyBeanMethods = false)
