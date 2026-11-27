@@ -92,6 +92,6 @@ public class AccessControlFilter implements GlobalFilter, Ordered {
     /** Después del registro de desconexión y antes de cualquier filtro que llame al MS. */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE + 100;
+        return HIGHEST_PRECEDENCE + 100;
     }
 }

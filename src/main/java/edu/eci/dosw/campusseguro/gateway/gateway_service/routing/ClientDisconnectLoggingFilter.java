@@ -27,6 +27,6 @@ public class ClientDisconnectLoggingFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        return HIGHEST_PRECEDENCE;
     }
 }

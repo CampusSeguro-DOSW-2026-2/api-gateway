@@ -68,6 +68,6 @@ public class IdentityHeadersFilter implements GlobalFilter, Ordered {
     /** Después del control de acceso (que ya leyó {@code Authorization}) y antes del reenvío. */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE + 200;
+        return HIGHEST_PRECEDENCE + 200;
     }
 }
