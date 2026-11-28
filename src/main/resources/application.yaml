@@ -118,6 +118,9 @@ gateway:
   path-timeouts:
     - path: /api/v1/tutor/**
       timeout: ${GATEWAY_TUTOR_TIMEOUT_MS:10000}ms
+    # Subir una evidencia puede tardar mas que el tiempo general: se da 30 s solo a los incidentes.
+    - path: /api/v1/incidentes/**
+      timeout: ${GATEWAY_INCIDENTES_TIMEOUT_MS:30000}ms
 
   # Políticas de acceso por método + ruta exacta (GW-C §3). Lo que no está aquí es protegido (RN-GW-08).
   # Las públicas deben coincidir con los Estándares §2; agregar una exige PR en los Estándares.
